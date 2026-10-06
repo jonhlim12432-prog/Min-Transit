@@ -1,0 +1,6 @@
+{
+  "name": "MTTH — Mindanao Ticket Hub",
+  "description": "Mindanao Ticket Hub — flights, ferries, buses, destinations, deals and travel inspiration across Mindanao.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
