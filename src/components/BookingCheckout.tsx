@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Schedule, Passenger, Voucher, SukiAccount } from '../types';
-import { ShieldCheck, Tag, Award, CreditCard, CheckCircle2, ArrowRight, User, Phone, Mail, Calendar, Check, Smartphone, Landmark, Wallet } from 'lucide-react';
+import { Schedule, Passenger, Voucher, SukiAccount, UserProfile } from '../types';
+import { ShieldCheck, Tag, Award, CreditCard, CheckCircle2, ArrowRight, User, Phone, Mail, Calendar, Check, Smartphone, Landmark, Wallet, AlertCircle } from 'lucide-react';
 
 interface BookingCheckoutProps {
   schedule: Schedule;
   passengersCount: number;
   sukiAccount: SukiAccount;
   vouchers: Voucher[];
+  userProfile?: UserProfile;
+  onOpenKyc?: () => void;
+  onQuickVerifyKyc?: () => void;
   onCompleteBooking: (bookingData: any) => void;
   onCancel: () => void;
 }
@@ -16,6 +19,9 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
   passengersCount,
   sukiAccount,
   vouchers,
+  userProfile,
+  onOpenKyc,
+  onQuickVerifyKyc,
   onCompleteBooking,
   onCancel
 }) => {
@@ -57,7 +63,14 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
     setPassengers(updated);
   };
 
+  const isVerified = userProfile?.kyc?.status === 'verified';
+
   const handleFinishPayment = () => {
+    if (!isVerified) {
+      if (onOpenKyc) onOpenKyc();
+      return;
+    }
+
     const bookingPayload = {
       scheduleId: schedule.id,
       transportType: schedule.transportType,
@@ -86,6 +99,54 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       
+      {/* Mandatory KYC Status Banner */}
+      {isVerified ? (
+        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <strong className="text-emerald-950 font-extrabold block">Identity Verified Traveler (KYC Level 2)</strong>
+              <span className="text-emerald-700">Cleared for domestic transportation ticketing & immediate boarding pass issuance.</span>
+            </div>
+          </div>
+          <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">
+            Verified
+          </span>
+        </div>
+      ) : (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-amber-950 font-extrabold block">Mandatory KYC Verification Required Before Purchase</strong>
+              <span className="text-amber-800">
+                Philippine transportation regulations require identity verification before tickets can be purchased or transacted.
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenKyc && (
+              <button
+                type="button"
+                onClick={onOpenKyc}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                Verify Account Now
+              </button>
+            )}
+            {onQuickVerifyKyc && (
+              <button
+                type="button"
+                onClick={onQuickVerifyKyc}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                Instant Verify (Demo)
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Stepper Header */}
       <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
         {[
@@ -328,19 +389,65 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
                 <p>This is a simulated secure transaction for the Mindanao Travel Ticketing Hub preview environment. No real funds will be charged.</p>
               </div>
 
+              {!isVerified && (
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-xs text-rose-900 space-y-2 animate-fadeIn">
+                  <div className="flex items-center gap-2 font-extrabold">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Transaction Gated: KYC Verification Required</span>
+                  </div>
+                  <p className="text-rose-700">
+                    You cannot complete this purchase until your government ID is verified. Verify now to unlock ticket issuance.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {onOpenKyc && (
+                      <button
+                        type="button"
+                        onClick={onOpenKyc}
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow cursor-pointer transition-colors"
+                      >
+                        Upload ID to Verify
+                      </button>
+                    )}
+                    {onQuickVerifyKyc && (
+                      <button
+                        type="button"
+                        onClick={onQuickVerifyKyc}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow cursor-pointer transition-colors"
+                      >
+                        Instant Verify (Demo Mode)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between pt-4">
                 <button
                   onClick={() => setStep(3)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm cursor-pointer"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleFinishPayment}
-                  className="bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-extrabold px-10 py-4 rounded-2xl shadow-xl shadow-teal-500/25 text-base flex items-center space-x-2"
+                  disabled={!isVerified}
+                  className={`${
+                    isVerified 
+                      ? 'bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 shadow-xl shadow-teal-500/25 cursor-pointer' 
+                      : 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                  } text-white font-extrabold px-10 py-4 rounded-2xl text-base flex items-center space-x-2 transition-all`}
                 >
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Pay ₱{finalTotal.toLocaleString()} & Issue Ticket</span>
+                  {isVerified ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>Pay ₱{finalTotal.toLocaleString()} & Issue Ticket</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-5 h-5 text-rose-600" />
+                      <span>Verify Account to Pay ₱{finalTotal.toLocaleString()}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

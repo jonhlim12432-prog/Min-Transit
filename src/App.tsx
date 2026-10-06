@@ -4,13 +4,13 @@ import {
   MapPin, Calendar, Users, ArrowLeftRight, Search, ShieldCheck, QrCode, 
   Settings, LayoutDashboard, Route as RouteIcon, Gift, Heart, ArrowRight, 
   Check, X, Compass, Globe, Smartphone, HelpCircle, Layers, FileText,
-  ChevronDown, Zap, Star
+  ChevronDown, Zap, Star, AlertCircle, Clock, Lock
 } from 'lucide-react';
 import { 
-  Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin 
+  Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin, UserProfile, KycVerification 
 } from './types';
 import { 
-  MOCK_SCHEDULES, MOCK_VOUCHERS, INITIAL_SUKI_ACCOUNT 
+  MOCK_SCHEDULES, MOCK_VOUCHERS, INITIAL_SUKI_ACCOUNT, INITIAL_USER_PROFILE, MOCK_CUSTOMERS_KYC, CustomerKycRecord 
 } from './mockData';
 
 import { SearchResults } from './components/SearchResults';

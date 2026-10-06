@@ -139,6 +139,58 @@ export interface Promotion {
   isFlashSale?: boolean;
 }
 
+export type KycStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+
+export interface KycVerification {
+  status: KycStatus;
+  idType: 'ph_passport' | 'umid' | 'drivers_license' | 'philsys_national_id' | 'sss_gsis' | 'prc_id' | 'postal_id' | string;
+  idNumber: string;
+  frontIdUrl?: string;
+  backIdUrl?: string;
+  selfieUrl?: string;
+  submittedAt?: string;
+  verifiedAt?: string;
+  rejectionReason?: string;
+  verificationCode?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dob: string;
+  gender: 'female' | 'male' | 'other';
+  nationality: string;
+  address: {
+    street: string;
+    city: string;
+    province: string;
+    region: string;
+    zipCode: string;
+  };
+  emergencyContact: {
+    name: string;
+    relationship: string;
+    phone: string;
+  };
+  travelPreferences: {
+    seatPreference: 'window' | 'aisle' | 'no_preference';
+    specialAssistance: boolean;
+    frequentFlyerNo?: string;
+    preferredBusClass: string;
+    preferredFerryClass: string;
+  };
+  notificationSettings: {
+    emailTripUpdates: boolean;
+    smsDepartureAlerts: boolean;
+    promotionalOffers: boolean;
+  };
+  kyc: KycVerification;
+}
+
 export interface SukiAccount {
   userId: string;
   name: string;

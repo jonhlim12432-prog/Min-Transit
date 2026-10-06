@@ -1,4 +1,4 @@
-import { Destination, Operator, Schedule, Voucher, Promotion, TravelGuide, Review, SukiAccount, PointHistoryItem, SupportTicket, NotificationItem } from './types';
+import { Destination, Operator, Schedule, Voucher, Promotion, TravelGuide, Review, SukiAccount, PointHistoryItem, SupportTicket, NotificationItem, UserProfile } from './types';
 
 export const MOCK_DESTINATIONS: Destination[] = [
   {
@@ -1015,6 +1015,114 @@ export const INITIAL_SUKI_ACCOUNT: SukiAccount = {
   joinedDate: 'January 2025',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
 };
+
+export const INITIAL_USER_PROFILE: UserProfile = {
+  id: 'user-suki-001',
+  fullName: 'Maria Santos',
+  firstName: 'Maria',
+  lastName: 'Santos',
+  email: 'maria.santos@example.com',
+  phone: '+63 917 123 4567',
+  dob: '1992-05-14',
+  gender: 'female',
+  nationality: 'Filipino',
+  address: {
+    street: '142 Rizal Avenue, Barangay Nazareth',
+    city: 'Cagayan de Oro',
+    province: 'Misamis Oriental',
+    region: 'Region X (Northern Mindanao)',
+    zipCode: '9000'
+  },
+  emergencyContact: {
+    name: 'Roberto Santos',
+    relationship: 'Brother',
+    phone: '+63 918 987 6543'
+  },
+  travelPreferences: {
+    seatPreference: 'window',
+    specialAssistance: false,
+    frequentFlyerNo: 'PAL-8829104',
+    preferredBusClass: 'Executive Aircon',
+    preferredFerryClass: 'Tourist Aircon'
+  },
+  notificationSettings: {
+    emailTripUpdates: true,
+    smsDepartureAlerts: true,
+    promotionalOffers: false
+  },
+  kyc: {
+    status: 'unverified', // Unverified by default so user can test the mandatory KYC verification flow!
+    idType: 'philsys_national_id',
+    idNumber: '',
+    submittedAt: '',
+    verifiedAt: '',
+    verificationCode: ''
+  }
+};
+
+export interface CustomerKycRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  tier: string;
+  kycStatus: 'verified' | 'pending' | 'unverified';
+  idType: string;
+  idNumber: string;
+  submittedAt: string;
+  completedBookings: number;
+}
+
+export const MOCK_CUSTOMERS_KYC: CustomerKycRecord[] = [
+  {
+    id: 'cust-1',
+    name: 'Maria Santos',
+    email: 'maria.santos@example.com',
+    phone: '+63 917 123 4567',
+    tier: 'Gold Suki',
+    kycStatus: 'unverified',
+    idType: 'PhilSys National ID',
+    idNumber: '4829-1092-3849',
+    submittedAt: 'Pending Submission',
+    completedBookings: 18
+  },
+  {
+    id: 'cust-2',
+    name: 'Juan Dela Cruz',
+    email: 'juan.delacruz@mindanaomail.ph',
+    phone: '+63 918 456 7890',
+    tier: 'VIP Suki',
+    kycStatus: 'verified',
+    idType: 'Philippine Passport',
+    idNumber: 'P8920192A',
+    submittedAt: '2026-09-14',
+    completedBookings: 32
+  },
+  {
+    id: 'cust-3',
+    name: 'Kristine Mae Alcantara',
+    email: 'kristine.alcantara@gmail.com',
+    phone: '+63 920 334 8812',
+    tier: 'Plus Suki',
+    kycStatus: 'pending',
+    idType: 'Driver\'s License',
+    idNumber: 'D02-19-092812',
+    submittedAt: '2026-10-06 08:30',
+    completedBookings: 5
+  },
+  {
+    id: 'cust-4',
+    name: 'Mark Anthony Tan',
+    email: 'mark.tan@davaobiz.ph',
+    phone: '+63 927 889 0012',
+    tier: 'Starter Suki',
+    kycStatus: 'verified',
+    idType: 'UMID',
+    idNumber: '0033-9182049-1',
+    submittedAt: '2026-08-20',
+    completedBookings: 9
+  }
+];
 
 export const MOCK_POINT_HISTORY: PointHistoryItem[] = [
   {
