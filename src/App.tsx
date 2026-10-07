@@ -209,106 +209,154 @@ export default function App() {
   const [passengers, setPassengers] = useState(1);
   const [searchMsg, setSearchMsg] = useState('');
 
-  // Data Stores
-  const [sukiAccount, setSukiAccount] = useState<SukiAccount>(INITIAL_SUKI_ACCOUNT);
-  const [schedules, setSchedules] = useState<Schedule[]>(MOCK_SCHEDULES);
-  const [vouchers, setVouchers] = useState<Voucher[]>(MOCK_VOUCHERS);
-  const [bookings, setBookings] = useState<Booking[]>([
-    {
-      id: 'bk-101',
-      bookingCode: 'MTTH-CAM-8821',
-      userId: 'user-suki-001',
-      scheduleId: 'sch-1',
-      transportType: 'ferry',
-      operatorName: 'SuperFerry Mindanao',
-      operatorLogo: 'SFM',
-      origin: 'Cagayan de Oro',
-      destination: 'Camiguin Island',
-      departureTime: '2026-10-18T06:00:00',
-      arrivalTime: '2026-10-18T09:30:00',
-      passengers: [
-        { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: 'A12' }
-      ],
-      selectedClass: 'Tourist',
-      baseFare: 850,
-      terminalFee: 30,
-      serviceFee: 50,
-      taxes: 45,
-      discountAmount: 85,
-      voucherCode: 'WELCOME10',
-      sukiDiscountAmount: 40,
-      totalPaid: 900,
-      sukiPointsEarned: 250,
-      paymentMethod: 'GCash',
-      status: 'confirmed',
-      createdAt: '2026-10-01T10:00:00Z',
-      qrCodeToken: 'MTTH-QR-SECURE-CAM-9921'
-    },
-    {
-      id: 'bk-102',
-      bookingCode: 'MTTH-20261104-002',
-      userId: 'user-suki-001',
-      scheduleId: 'sch-5',
-      transportType: 'flight',
-      operatorName: 'Mindanao Express Airlines',
-      operatorLogo: 'MXA',
-      origin: 'Davao City',
-      destination: 'Siargao Island',
-      departureTime: '2026-11-04T07:30:00',
-      arrivalTime: '2026-11-04T08:35:00',
-      passengers: [
-        { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: '12F' }
-      ],
-      selectedClass: 'Economy',
-      baseFare: 2450,
-      terminalFee: 200,
-      serviceFee: 100,
-      taxes: 120,
-      discountAmount: 500,
-      voucherCode: 'FLYSUKI',
-      sukiDiscountAmount: 171,
-      totalPaid: 2199,
-      sukiPointsEarned: 350,
-      paymentMethod: 'Maya',
-      status: 'confirmed',
-      createdAt: '2026-10-03T14:30:00Z',
-      qrCodeToken: 'MTTH-QR-SECURE-DVO-8812'
-    }
-  ]);
+  // Data Stores with Robust Persistent Storage Across Sessions & Devices
+  const [sukiAccount, setSukiAccount] = useState<SukiAccount>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_suki_account');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_SUKI_ACCOUNT;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('mtth_suki_account', JSON.stringify(sukiAccount)); } catch {}
+  }, [sukiAccount]);
 
-  // Sub-Admins Store
-  const [subAdmins, setSubAdmins] = useState<SubAdmin[]>([
-    {
-      id: 'sub-1',
-      name: 'Carlos Mendoza',
-      email: 'carlos.ops@mtth.ph',
-      role: 'Operations Admin',
-      status: 'Active',
-      permissions: ['Manage Bookings', 'Manage Operators', 'Issue Refunds'],
-      createdAt: '2026-08-12',
-      lastActive: '10 mins ago'
-    },
-    {
-      id: 'sub-2',
-      name: 'Eileen Dalisay',
-      email: 'eileen.ticketing@mtth.ph',
-      role: 'Ticketing Agent',
-      status: 'Active',
-      permissions: ['Manage Bookings', 'Issue Tickets'],
-      createdAt: '2026-09-01',
-      lastActive: '1 hour ago'
-    },
-    {
-      id: 'sub-3',
-      name: 'Ramon Bautista',
-      email: 'ramon.support@mtth.ph',
-      role: 'Support Agent',
-      status: 'Active',
-      permissions: ['Manage Support', 'Review Inquiries'],
-      createdAt: '2026-09-15',
-      lastActive: 'Yesterday'
-    }
-  ]);
+  const [schedules, setSchedules] = useState<Schedule[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_schedules');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return MOCK_SCHEDULES;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('mtth_schedules', JSON.stringify(schedules)); } catch {}
+  }, [schedules]);
+
+  const [vouchers, setVouchers] = useState<Voucher[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_vouchers');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return MOCK_VOUCHERS;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('mtth_vouchers', JSON.stringify(vouchers)); } catch {}
+  }, [vouchers]);
+
+  const [bookings, setBookings] = useState<Booking[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_bookings');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: 'bk-101',
+        bookingCode: 'MTTH-CAM-8821',
+        userId: 'user-suki-001',
+        scheduleId: 'sch-1',
+        transportType: 'ferry',
+        operatorName: 'SuperFerry Mindanao',
+        operatorLogo: 'SFM',
+        origin: 'Cagayan de Oro',
+        destination: 'Camiguin Island',
+        departureTime: '2026-10-18T06:00:00',
+        arrivalTime: '2026-10-18T09:30:00',
+        passengers: [
+          { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: 'A12' }
+        ],
+        selectedClass: 'Tourist',
+        baseFare: 850,
+        terminalFee: 30,
+        serviceFee: 50,
+        taxes: 45,
+        discountAmount: 85,
+        voucherCode: 'WELCOME10',
+        sukiDiscountAmount: 40,
+        totalPaid: 900,
+        sukiPointsEarned: 250,
+        paymentMethod: 'GCash',
+        status: 'confirmed',
+        createdAt: '2026-10-01T10:00:00Z',
+        qrCodeToken: 'MTTH-QR-SECURE-CAM-9921'
+      },
+      {
+        id: 'bk-102',
+        bookingCode: 'MTTH-20261104-002',
+        userId: 'user-suki-001',
+        scheduleId: 'sch-5',
+        transportType: 'flight',
+        operatorName: 'Mindanao Express Airlines',
+        operatorLogo: 'MXA',
+        origin: 'Davao City',
+        destination: 'Siargao Island',
+        departureTime: '2026-11-04T07:30:00',
+        arrivalTime: '2026-11-04T08:35:00',
+        passengers: [
+          { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: '12F' }
+        ],
+        selectedClass: 'Economy',
+        baseFare: 2450,
+        terminalFee: 200,
+        serviceFee: 100,
+        taxes: 120,
+        discountAmount: 500,
+        voucherCode: 'FLYSUKI',
+        sukiDiscountAmount: 171,
+        totalPaid: 2199,
+        sukiPointsEarned: 350,
+        paymentMethod: 'Maya',
+        status: 'confirmed',
+        createdAt: '2026-10-03T14:30:00Z',
+        qrCodeToken: 'MTTH-QR-SECURE-DVO-8812'
+      }
+    ];
+  });
+  useEffect(() => {
+    try { localStorage.setItem('mtth_bookings', JSON.stringify(bookings)); } catch {}
+  }, [bookings]);
+
+  // Sub-Admins Store with Persistence
+  const [subAdmins, setSubAdmins] = useState<SubAdmin[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_subadmins');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: 'sub-1',
+        name: 'Carlos Mendoza',
+        email: 'carlos.ops@mtth.ph',
+        role: 'Operations Admin',
+        status: 'Active',
+        permissions: ['Manage Bookings', 'Manage Operators', 'Issue Refunds'],
+        createdAt: '2026-08-12',
+        lastActive: '10 mins ago'
+      },
+      {
+        id: 'sub-2',
+        name: 'Eileen Dalisay',
+        email: 'eileen.ticketing@mtth.ph',
+        role: 'Ticketing Agent',
+        status: 'Active',
+        permissions: ['Manage Bookings', 'Issue Tickets'],
+        createdAt: '2026-09-01',
+        lastActive: '1 hour ago'
+      },
+      {
+        id: 'sub-3',
+        name: 'Ramon Bautista',
+        email: 'ramon.support@mtth.ph',
+        role: 'Support Agent',
+        status: 'Active',
+        permissions: ['Manage Support', 'Review Inquiries'],
+        createdAt: '2026-09-15',
+        lastActive: 'Yesterday'
+      }
+    ];
+  });
+  useEffect(() => {
+    try { localStorage.setItem('mtth_subadmins', JSON.stringify(subAdmins)); } catch {}
+  }, [subAdmins]);
 
   // Booking & Selection
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
