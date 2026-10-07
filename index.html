@@ -16,7 +16,52 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
     <script>
       (function() {
-        // Silence harmless Vite WebSocket HMR disconnect errors in iframe preview
+        // Complete override for Vite HMR WebSocket in iframe preview environments
+        const NativeWebSocket = window.WebSocket;
+        if (NativeWebSocket) {
+          class DummyWebSocket {
+            readyState = 3; // CLOSED
+            bufferedAmount = 0;
+            extensions = '';
+            protocol = '';
+            binaryType = 'blob';
+            url = '';
+            onopen = null;
+            onmessage = null;
+            onerror = null;
+            onclose = null;
+
+            constructor(url, protocols) {
+              this.url = String(url || '');
+              if (this.url.includes('vite') || this.url.includes('ws://') || this.url.includes('wss://')) {
+                setTimeout(() => {
+                  if (typeof this.onclose === 'function') {
+                    try {
+                      this.onclose({ wasClean: true, code: 1000, reason: 'HMR Disabled' });
+                    } catch {}
+                  }
+                }, 10);
+                return;
+              }
+              return new NativeWebSocket(url, protocols);
+            }
+
+            send() {}
+            close() {}
+            addEventListener() {}
+            removeEventListener() {}
+            dispatchEvent() { return true; }
+          }
+
+          DummyWebSocket.CONNECTING = 0;
+          DummyWebSocket.OPEN = 1;
+          DummyWebSocket.CLOSING = 2;
+          DummyWebSocket.CLOSED = 3;
+
+          window.WebSocket = DummyWebSocket;
+        }
+
+        // Silence console logs and error popups for Vite HMR
         const origConsoleError = console.error;
         console.error = function(...args) {
           const msg = args.map(a => String(a?.message || a)).join(' ');
