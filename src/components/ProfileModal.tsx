@@ -6,15 +6,6 @@ import {
   MapPin, Calendar, Lock, Check, Sparkles, RefreshCw, Trash2, UploadCloud, Image as ImageIcon
 } from 'lucide-react';
 
-const PRESET_AVATARS = [
-  { id: 'av-1', label: 'Maria (Traveler)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av-2', label: 'Juan (Explorer)', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av-3', label: 'Ana (Islander)', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av-4', label: 'Mark (Backpacker)', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av-5', label: 'Carla (Adventurer)', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80' },
-  { id: 'av-6', label: 'Leo (Digital Nomad)', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80' }
-];
-
 interface ProfileModalProps {
   userProfile: UserProfile;
   sukiAccount: SukiAccount;
@@ -87,18 +78,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleSelectPresetAvatar = (url: string) => {
-    setFormData(prev => ({ ...prev, avatarUrl: url }));
-    sukiAccount.avatar = url;
-    const updated: UserProfile = {
-      ...userProfile,
-      avatarUrl: url
-    };
-    onUpdateProfile(updated);
-    setSaveSuccessMsg('Avatar updated successfully!');
-    setTimeout(() => setSaveSuccessMsg(''), 3500);
-  };
-
   const handleRemoveAvatar = () => {
     setFormData(prev => ({ ...prev, avatarUrl: '' }));
     sukiAccount.avatar = '';
@@ -112,15 +91,46 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   // Local form state for KYC Verification
-
-  // Local form state for KYC Verification
   const [kycForm, setKycForm] = useState({
     idType: userProfile.kyc.idType || 'philsys_national_id',
-    idNumber: userProfile.kyc.idNumber || '4829-1092-3849',
+    idNumber: userProfile.kyc.idNumber || '',
     frontUploaded: !!userProfile.kyc.frontIdUrl,
     backUploaded: !!userProfile.kyc.backIdUrl,
     selfieUploaded: !!userProfile.kyc.selfieUrl
   });
+
+  // Valid Philippine Demo ID Presets for 1-click autofill testing
+  const DEMO_ID_PRESETS = [
+    { type: 'philsys_national_id', label: 'PhilSys National ID', number: '4829-1092-3849-1102' },
+    { type: 'ph_passport', label: 'Philippine Passport', number: 'P8920192A' },
+    { type: 'drivers_license', label: "Driver's License", number: 'N02-18-092831' },
+    { type: 'umid', label: 'UMID', number: '0033-9182049-1' }
+  ];
+
+  const handleAutoFillDemoId = (preset?: typeof DEMO_ID_PRESETS[0]) => {
+    const selected = preset || DEMO_ID_PRESETS[0];
+    setKycForm({
+      idType: selected.type,
+      idNumber: selected.number,
+      frontUploaded: true,
+      backUploaded: true,
+      selfieUploaded: true
+    });
+    setSaveSuccessMsg(`Auto-filled valid ${selected.label} and mock identity documents!`);
+    setTimeout(() => setSaveSuccessMsg(''), 4000);
+  };
+
+  const handleClearKycForm = () => {
+    setKycForm({
+      idType: 'philsys_national_id',
+      idNumber: '',
+      frontUploaded: false,
+      backUploaded: false,
+      selfieUploaded: false
+    });
+    setSaveSuccessMsg('Cleared KYC form fields');
+    setTimeout(() => setSaveSuccessMsg(''), 2500);
+  };
 
   // Local settings state
   const [settingsForm, setSettingsForm] = useState({
@@ -192,18 +202,20 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   // Submit KYC for review
-  const handleSubmitKyc = (instant = false) => {
-    const isInstant = instant;
+  const handleSubmitKyc = () => {
+    if (!kycForm.idNumber) {
+      alert('Please enter your official government ID number.');
+      return;
+    }
+
     const updatedKyc: KycVerification = {
-      status: isInstant ? 'verified' : 'pending',
+      status: 'pending',
       idType: kycForm.idType,
-      idNumber: kycForm.idNumber || '4829-1092-3849',
-      frontIdUrl: 'uploaded-front.png',
-      backIdUrl: 'uploaded-back.png',
-      selfieUrl: 'uploaded-selfie.png',
-      submittedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      verifiedAt: isInstant ? new Date().toISOString().slice(0, 10) : undefined,
-      verificationCode: isInstant ? `KYC-PH-${Math.floor(1000 + Math.random() * 9000)}-VERIFIED` : undefined
+      idNumber: kycForm.idNumber,
+      frontIdUrl: kycForm.frontUploaded ? 'uploaded-front.png' : undefined,
+      backIdUrl: kycForm.backUploaded ? 'uploaded-back.png' : undefined,
+      selfieUrl: kycForm.selfieUploaded ? 'uploaded-selfie.png' : undefined,
+      submittedAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
     };
 
     const updatedProfile: UserProfile = {
@@ -212,19 +224,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     };
 
     onUpdateProfile(updatedProfile);
-    setSaveSuccessMsg(isInstant ? 'Account verified successfully! You can now make purchases.' : 'KYC submitted for review!');
-    setTimeout(() => setSaveSuccessMsg(''), 3500);
-  };
-
-  // Auto-fill demo valid ID
-  const handleAutoFillDemoId = () => {
-    setKycForm({
-      idType: 'philsys_national_id',
-      idNumber: '4829-1092-3849-1102',
-      frontUploaded: true,
-      backUploaded: true,
-      selfieUploaded: true
-    });
+    setSaveSuccessMsg('KYC documents submitted successfully! Compliance team will review your account.');
+    setTimeout(() => setSaveSuccessMsg(''), 4000);
   };
 
   return (
@@ -413,27 +414,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                 </div>
 
-                {/* Preset Avatars Selector */}
-                <div className="pt-3 border-t border-slate-200/80 space-y-2">
-                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block">
-                    Or Choose from Mindanao Traveler Avatars:
-                  </span>
-                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
-                    {PRESET_AVATARS.map((av) => (
-                      <button
-                        key={av.id}
-                        type="button"
-                        onClick={() => handleSelectPresetAvatar(av.url)}
-                        className={`p-1 rounded-xl border-2 transition-all shrink-0 cursor-pointer ${
-                          formData.avatarUrl === av.url ? 'border-teal-500 ring-2 ring-teal-500/20 bg-teal-50' : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                        title={av.label}
-                      >
-                        <img src={av.url} alt={av.label} className="w-9 h-9 rounded-lg object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
+
               </div>
 
               <div>
@@ -670,14 +651,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
 
                   <div className="flex flex-wrap gap-2 items-center justify-between pt-2 border-t border-amber-200">
-                    <span className="text-xs text-amber-800">Submitted on: {userProfile.kyc.submittedAt || 'Today'}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleSubmitKyc(true)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow cursor-pointer"
-                    >
-                      Instant Approve (Demo Mode)
-                    </button>
+                    <span className="text-xs text-amber-800">Submitted on: {userProfile.kyc.submittedAt || 'Under Review'}</span>
+                    <span className="text-[11px] font-bold text-amber-900 bg-amber-200/80 px-2.5 py-1 rounded-lg">
+                      Pending Admin Approval
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -698,18 +675,49 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
               {/* KYC Form (when not verified or modifying) */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
                     {userProfile.kyc.status === 'verified' ? 'Update ID Information' : 'Submit Philippine Government ID'}
                   </h4>
-                  <button
-                    type="button"
-                    onClick={handleAutoFillDemoId}
-                    className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Auto-Fill Valid Demo ID</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleAutoFillDemoId()}
+                      className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 font-bold px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Auto-fill with valid Philippine Demo ID and document scans for instant test"
+                    >
+                      <Sparkles className="w-3 h-3 text-teal-600" />
+                      <span>Auto-fill Valid Demo ID</span>
+                    </button>
+                    {kycForm.idNumber && (
+                      <button
+                        type="button"
+                        onClick={handleClearKycForm}
+                        className="text-slate-400 hover:text-rose-600 text-[11px] font-semibold px-2 py-1"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick 1-Click Valid Demo ID Selector Chips */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                  <span className="text-slate-500 font-bold whitespace-nowrap text-[10px] uppercase tracking-wide">Quick Preset IDs:</span>
+                  {DEMO_ID_PRESETS.map((p) => (
+                    <button
+                      key={p.type}
+                      type="button"
+                      onClick={() => handleAutoFillDemoId(p)}
+                      className={`px-2 py-1 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                        kycForm.idType === p.type && kycForm.idNumber === p.number
+                          ? 'bg-teal-600 text-white font-bold'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -737,6 +745,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       value={kycForm.idNumber}
                       onChange={(e) => setKycForm({ ...kycForm, idNumber: e.target.value })}
                       placeholder="e.g. 4829-1092-3849-1102"
+                      required
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-teal-500 outline-none"
                     />
                   </div>
@@ -753,7 +762,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </div>
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">Front of ID</span>
-                      <span className="text-[10px] text-slate-500">{kycForm.frontUploaded ? 'Document Loaded' : 'Clear photo of card front'}</span>
+                      <span className="text-[10px] text-slate-500">{kycForm.frontUploaded ? 'Document Uploaded' : 'Clear photo of card front'}</span>
                     </div>
                     <button
                       type="button"
@@ -762,7 +771,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         kycForm.frontUploaded ? 'bg-teal-600 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
                       }`}
                     >
-                      {kycForm.frontUploaded ? 'Loaded' : 'Upload Front'}
+                      {kycForm.frontUploaded ? 'Uploaded' : 'Upload Front'}
                     </button>
                   </div>
 
@@ -775,7 +784,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     </div>
                     <div>
                       <span className="text-xs font-bold text-slate-800 block">Back of ID</span>
-                      <span className="text-[10px] text-slate-500">{kycForm.backUploaded ? 'Document Loaded' : 'Barcode & signature side'}</span>
+                      <span className="text-[10px] text-slate-500">{kycForm.backUploaded ? 'Document Uploaded' : 'Barcode & signature side'}</span>
                     </div>
                     <button
                       type="button"
@@ -784,7 +793,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         kycForm.backUploaded ? 'bg-teal-600 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
                       }`}
                     >
-                      {kycForm.backUploaded ? 'Loaded' : 'Upload Back'}
+                      {kycForm.backUploaded ? 'Uploaded' : 'Upload Back'}
                     </button>
                   </div>
 
@@ -820,19 +829,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => handleSubmitKyc(false)}
-                      className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
-                    >
-                      Submit for Review
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleSubmitKyc(true)}
-                      className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                      onClick={handleSubmitKyc}
+                      className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-extrabold px-6 py-2.5 rounded-xl text-xs shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
                     >
                       <ShieldCheck className="w-4 h-4" />
-                      <span>Instant Verify (Demo Mode)</span>
+                      <span>Submit KYC Documents for Review</span>
                     </button>
                   </div>
                 </div>

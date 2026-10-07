@@ -4,7 +4,8 @@ import {
   MapPin, Calendar, Users, ArrowLeftRight, Search, ShieldCheck, QrCode, 
   Settings, LayoutDashboard, Route as RouteIcon, Gift, Heart, ArrowRight, 
   Check, X, Compass, Globe, Smartphone, HelpCircle, Layers, FileText,
-  ChevronDown, Zap, Star, AlertCircle, Clock, Lock, Rocket, Terminal, ExternalLink, Copy
+  ChevronDown, Zap, Star, AlertCircle, Clock, Lock, Rocket, Terminal, ExternalLink, Copy,
+  Edit3, Trash2, Eye, Plus, Filter, RefreshCw, CheckCircle2
 } from 'lucide-react';
 import { 
   Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin, UserProfile, KycVerification 
@@ -20,6 +21,14 @@ import { DigitalTicketModal } from './components/DigitalTicketModal';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ProfileModal } from './components/ProfileModal';
 import { VercelDeployModal } from './components/VercelDeployModal';
+import { 
+  ViewKycDocsModal, 
+  EditCustomerModal, 
+  EditBookingModal, 
+  EditScheduleModal, 
+  EditVoucherModal, 
+  EditSubAdminModal 
+} from './components/AdminManagerModals';
 
 export default function App() {
   // Navigation & View mode: 'landing' | 'dashboard' | 'admin' | 'search-results' | 'checkout' | 'confirmation'
@@ -142,6 +151,52 @@ export default function App() {
 
     updateFavicon(siteSettings.logoUrl);
   }, [siteSettings.logoUrl]);
+
+  // Automatic Browser Tab Title & Metadata Synchronization:
+  // When website name or subtitle is modified in settings, it instantly updates the browser tab title and metadata
+  useEffect(() => {
+    const fullTitle = siteSettings.siteSubtitle
+      ? `${siteSettings.siteName} — ${siteSettings.siteSubtitle}`
+      : siteSettings.siteName;
+    
+    // Update browser tab title
+    document.title = fullTitle;
+
+    // Sync OpenGraph and Twitter meta tags in document head
+    let ogTitleMeta = document.querySelector("meta[property='og:title']");
+    if (!ogTitleMeta) {
+      ogTitleMeta = document.createElement('meta');
+      ogTitleMeta.setAttribute('property', 'og:title');
+      document.head.appendChild(ogTitleMeta);
+    }
+    ogTitleMeta.setAttribute('content', fullTitle);
+
+    let twitterTitleMeta = document.querySelector("meta[name='twitter:title']");
+    if (!twitterTitleMeta) {
+      twitterTitleMeta = document.createElement('meta');
+      twitterTitleMeta.setAttribute('name', 'twitter:title');
+      document.head.appendChild(twitterTitleMeta);
+    }
+    twitterTitleMeta.setAttribute('content', fullTitle);
+
+    const descriptionContent = `${fullTitle} — ${siteSettings.tagline || 'Your Journey Starts Here'}. Domestic flights, fastcraft ferries, buses, and travel inspiration across Mindanao.`;
+    
+    let descMeta = document.querySelector("meta[name='description']");
+    if (!descMeta) {
+      descMeta = document.createElement('meta');
+      descMeta.setAttribute('name', 'description');
+      document.head.appendChild(descMeta);
+    }
+    descMeta.setAttribute('content', descriptionContent);
+
+    let ogDescMeta = document.querySelector("meta[property='og:description']");
+    if (!ogDescMeta) {
+      ogDescMeta = document.createElement('meta');
+      ogDescMeta.setAttribute('property', 'og:description');
+      document.head.appendChild(ogDescMeta);
+    }
+    ogDescMeta.setAttribute('content', descriptionContent);
+  }, [siteSettings.siteName, siteSettings.siteSubtitle, siteSettings.tagline]);
 
   // Search State
   const [transportTab, setTransportTab] = useState<'flight' | 'ferry' | 'bus'>('flight');
@@ -303,7 +358,7 @@ export default function App() {
     } catch {}
   }, [customersKyc]);
 
-  const [customerFilter, setCustomerFilter] = useState<'all' | 'verified' | 'pending' | 'unverified'>('all');
+  const [customerFilter, setCustomerFilter] = useState<'all' | 'verified' | 'pending' | 'unverified' | 'rejected'>('all');
   const [customerSearch, setCustomerSearch] = useState('');
 
   const handleQuickVerifyKyc = () => {
@@ -351,9 +406,46 @@ export default function App() {
   const [showAddPromoModal, setShowAddPromoModal] = useState(false);
   const [showAddOperatorModal, setShowAddOperatorModal] = useState(false);
   const [showAddDestinationModal, setShowAddDestinationModal] = useState(false);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [showAddBookingModal, setShowAddBookingModal] = useState(false);
   const [refundCount, setRefundCount] = useState(27);
 
+  // Admin Interactive Entity Modals
+  const [selectedKycForReview, setSelectedKycForReview] = useState<CustomerKycRecord | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerKycRecord | null>(null);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+  const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
+  const [editingSubAdmin, setEditingSubAdmin] = useState<SubAdmin | null>(null);
+
+  // Admin Search & Filter States
+  const [bookingSearchQuery, setBookingSearchQuery] = useState('');
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<'all' | 'confirmed' | 'completed' | 'cancelled' | 'pending'>('all');
+  const [routeSearchQuery, setRouteSearchQuery] = useState('');
+  const [routeTypeFilter, setRouteTypeFilter] = useState<'all' | 'flight' | 'bus' | 'ferry'>('all');
+  const [promoSearchQuery, setPromoSearchQuery] = useState('');
+  const [promoFilter, setPromoFilter] = useState<'all' | 'active' | 'expired'>('all');
+  const [subAdminSearchQuery, setSubAdminSearchQuery] = useState('');
+
   // Form states for Admin modals
+  const [newCustomerForm, setNewCustomerForm] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    tier: string;
+    kycStatus: 'verified' | 'pending' | 'unverified' | 'rejected';
+    idType: string;
+    idNumber: string;
+  }>({
+    name: '',
+    email: '',
+    phone: '',
+    tier: 'Starter Suki',
+    kycStatus: 'unverified',
+    idType: 'PhilSys National ID',
+    idNumber: ''
+  });
+
   const [newSubAdminForm, setNewSubAdminForm] = useState({
     name: '',
     email: '',
@@ -542,6 +634,194 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
     setVouchers([newVoucher, ...vouchers]);
     setShowAddPromoModal(false);
     showToast(`Promo voucher ${newVoucher.code} created and published!`);
+  };
+
+  // Admin: Create Customer
+  const handleCreateCustomer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomerForm.name || !newCustomerForm.email) return;
+    const newCust: CustomerKycRecord = {
+      id: `cust-${Date.now()}`,
+      name: newCustomerForm.name,
+      email: newCustomerForm.email,
+      phone: newCustomerForm.phone || '+63 917 000 0000',
+      tier: newCustomerForm.tier,
+      kycStatus: newCustomerForm.kycStatus,
+      idType: newCustomerForm.idType,
+      idNumber: newCustomerForm.idNumber,
+      submittedAt: newCustomerForm.kycStatus === 'verified' ? new Date().toISOString().slice(0, 10) : 'Pending Submission',
+      completedBookings: 0
+    };
+    setCustomersKyc([newCust, ...customersKyc]);
+    setShowAddCustomerModal(false);
+    setNewCustomerForm({
+      name: '',
+      email: '',
+      phone: '',
+      tier: 'Starter Suki',
+      kycStatus: 'unverified',
+      idType: 'PhilSys National ID',
+      idNumber: ''
+    });
+    showToast(`Customer account created for ${newCust.name}!`);
+  };
+
+  // Admin KYC Actions
+  const handleApproveCustomerKyc = (customerId: string) => {
+    setCustomersKyc(prev => prev.map(c => {
+      if (c.id === customerId) {
+        if (c.email === userProfile.email) {
+          setUserProfile(up => ({
+            ...up,
+            kyc: {
+              ...up.kyc,
+              status: 'verified',
+              verifiedAt: new Date().toISOString().slice(0, 10),
+              verificationCode: `KYC-PH-${Math.floor(1000 + Math.random() * 9000)}-VERIFIED`
+            }
+          }));
+        }
+        return { ...c, kycStatus: 'verified', submittedAt: new Date().toISOString().slice(0, 10) };
+      }
+      return c;
+    }));
+    showToast('Customer KYC approved & account verified!');
+  };
+
+  const handleRejectCustomerKyc = (customerId: string, reason: string) => {
+    setCustomersKyc(prev => prev.map(c => {
+      if (c.id === customerId) {
+        if (c.email === userProfile.email) {
+          setUserProfile(up => ({
+            ...up,
+            kyc: {
+              ...up.kyc,
+              status: 'rejected',
+              rejectionReason: reason
+            }
+          }));
+        }
+        return { ...c, kycStatus: 'rejected' };
+      }
+      return c;
+    }));
+    showToast(`Customer KYC rejected: ${reason}`);
+  };
+
+  const handleResetCustomerKyc = (customerId: string) => {
+    setCustomersKyc(prev => prev.map(c => {
+      if (c.id === customerId) {
+        if (c.email === userProfile.email) {
+          setUserProfile(up => ({
+            ...up,
+            kyc: {
+              ...up.kyc,
+              status: 'unverified'
+            }
+          }));
+        }
+        return { ...c, kycStatus: 'unverified' };
+      }
+      return c;
+    }));
+    showToast('Customer KYC status reset to Unverified');
+  };
+
+  const handleSaveCustomer = (updated: CustomerKycRecord) => {
+    setCustomersKyc(prev => prev.map(c => c.id === updated.id ? updated : c));
+    if (updated.email === userProfile.email) {
+      setUserProfile(up => ({
+        ...up,
+        fullName: updated.name,
+        email: updated.email,
+        phone: updated.phone,
+        kyc: {
+          ...up.kyc,
+          status: updated.kycStatus as any,
+          idType: updated.idType,
+          idNumber: updated.idNumber
+        }
+      }));
+    }
+    showToast(`Customer ${updated.name} updated!`);
+  };
+
+  const handleDeleteCustomer = (customerId: string) => {
+    setCustomersKyc(prev => prev.filter(c => c.id !== customerId));
+    showToast('Customer account removed');
+  };
+
+  // Admin Booking Actions
+  const handleSaveBooking = (updated: Booking) => {
+    setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
+    showToast(`Booking ${updated.bookingCode} updated!`);
+  };
+
+  const handleDeleteBooking = (bookingId: string) => {
+    setBookings(prev => prev.filter(b => b.id !== bookingId));
+    showToast('Booking deleted from ledger');
+  };
+
+  const handleRefundBooking = (bookingId: string) => {
+    setBookings(prev => prev.map(b => {
+      if (b.id === bookingId) {
+        return {
+          ...b,
+          status: 'cancelled',
+          refundStatus: 'completed',
+          refundAmount: b.totalPaid
+        };
+      }
+      return b;
+    }));
+    if (refundCount > 0) setRefundCount(prev => prev - 1);
+    showToast('Booking refunded and cancelled successfully!');
+  };
+
+  // Admin Schedule Actions
+  const handleSaveSchedule = (updated: Schedule) => {
+    setSchedules(prev => prev.map(s => s.id === updated.id ? updated : s));
+    showToast(`Route ${updated.origin} → ${updated.destination} updated!`);
+  };
+
+  const handleDeleteSchedule = (scheduleId: string) => {
+    setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+    showToast('Route schedule deleted');
+  };
+
+  // Admin Promo Voucher Actions
+  const handleSaveVoucher = (updated: Voucher) => {
+    setVouchers(prev => prev.map(v => v.id === updated.id ? updated : v));
+    showToast(`Promo voucher ${updated.code} updated!`);
+  };
+
+  const handleToggleVoucher = (voucherId: string) => {
+    setVouchers(prev => prev.map(v => v.id === voucherId ? { ...v, claimed: !v.claimed } : v));
+    showToast('Promo voucher active state toggled');
+  };
+
+  const handleDeleteVoucher = (voucherId: string) => {
+    setVouchers(prev => prev.filter(v => v.id !== voucherId));
+    showToast('Promo voucher removed');
+  };
+
+  // Admin Sub-Admin Actions
+  const handleSaveSubAdmin = (updated: SubAdmin) => {
+    setSubAdmins(prev => prev.map(a => a.id === updated.id ? updated : a));
+    showToast(`Sub-admin ${updated.name} updated!`);
+  };
+
+  const handleDeleteSubAdmin = (adminId: string) => {
+    setSubAdmins(prev => prev.filter(a => a.id !== adminId));
+    showToast('Sub-admin account removed');
+  };
+
+  const handleToggleSubAdmin = (adminId: string) => {
+    setSubAdmins(prev => prev.map(a => a.id === adminId ? {
+      ...a,
+      status: a.status === 'Active' ? 'Suspended' : 'Active'
+    } : a));
+    showToast('Sub-admin status updated');
   };
 
   // Dynamic Logo renderer: Full logo with NO frame/gradient/box when uploaded; Default brand emblem when empty
@@ -1098,16 +1378,199 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 </div>
               )}
 
+              {/* TAB: CUSTOMERS & KYC VERIFICATION */}
+              {adminTab === 'Customers' && (
+                <div className="admin-panel space-y-4 animate-fadeIn">
+                  <div className="panel-head flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                    <div>
+                      <h2>Customer Management & KYC Compliance</h2>
+                      <p className="text-xs text-slate-500">Review Philippine government IDs, approve KYC verifications, and manage traveler accounts.</p>
+                    </div>
+                    <button className="primary flex items-center gap-1.5" onClick={() => setShowAddCustomerModal(true)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Customer</span>
+                    </button>
+                  </div>
+
+                  {/* KYC Compliance Summary Metrics */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                      <span className="text-slate-500 font-bold block text-[10px] uppercase">Total Customers</span>
+                      <strong className="text-base text-slate-900 font-black">{customersKyc.length}</strong>
+                    </div>
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <span className="text-emerald-700 font-bold block text-[10px] uppercase">KYC Verified</span>
+                      <strong className="text-base text-emerald-800 font-black">
+                        {customersKyc.filter(c => c.kycStatus === 'verified').length}
+                      </strong>
+                    </div>
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <span className="text-amber-700 font-bold block text-[10px] uppercase">Pending Review</span>
+                      <strong className="text-base text-amber-800 font-black">
+                        {customersKyc.filter(c => c.kycStatus === 'pending').length}
+                      </strong>
+                    </div>
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                      <span className="text-rose-700 font-bold block text-[10px] uppercase">Unverified / Rejected</span>
+                      <strong className="text-base text-rose-800 font-black">
+                        {customersKyc.filter(c => c.kycStatus === 'unverified' || c.kycStatus === 'rejected').length}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Search and Filter Toolbar */}
+                  <div className="flex flex-col sm:flex-row gap-2 items-center justify-between pt-1">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search name, email, ID number..."
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto text-xs">
+                      {(['all', 'verified', 'pending', 'unverified', 'rejected'] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setCustomerFilter(tab)}
+                          className={`px-3 py-1 rounded-xl font-bold uppercase text-[10px] tracking-wide transition-colors cursor-pointer ${
+                            customerFilter === tab
+                              ? 'bg-teal-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Customers Table */}
+                  <div className="table-responsive">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Customer</th>
+                          <th>Contact Details</th>
+                          <th>Suki Tier</th>
+                          <th>KYC Status</th>
+                          <th>ID Document</th>
+                          <th>Trips</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {customersKyc
+                          .filter(c => {
+                            const q = customerSearch.toLowerCase();
+                            const matchQ = c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.idNumber || '').toLowerCase().includes(q);
+                            const matchStatus = customerFilter === 'all' || c.kycStatus === customerFilter;
+                            return matchQ && matchStatus;
+                          })
+                          .map((cust) => (
+                            <tr key={cust.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td>
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 font-bold flex items-center justify-center text-xs shrink-0 border border-teal-300">
+                                    {cust.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-slate-900 text-xs">{cust.name}</div>
+                                    <div className="text-[10px] text-slate-400">ID: {cust.id}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td>
+                                <div className="text-xs text-slate-800 font-medium">{cust.email}</div>
+                                <div className="text-[10px] text-slate-400">{cust.phone}</div>
+                              </td>
+                              <td>
+                                <span className="font-bold text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                                  {cust.tier}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full tracking-wider inline-flex items-center gap-1 ${
+                                  cust.kycStatus === 'verified'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : cust.kycStatus === 'pending'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : cust.kycStatus === 'rejected'
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    : 'bg-slate-100 text-slate-700 border border-slate-300'
+                                }`}>
+                                  {cust.kycStatus === 'verified' ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <ShieldCheck className="w-3 h-3" />}
+                                  <span>{cust.kycStatus}</span>
+                                </span>
+                              </td>
+                              <td>
+                                <div className="text-xs font-semibold text-slate-800">{cust.idType}</div>
+                                <div className="text-[10px] font-mono text-slate-500">
+                                  {cust.idNumber ? `${cust.idNumber.slice(0, 4)}••••${cust.idNumber.slice(-4)}` : 'Not provided'}
+                                </div>
+                              </td>
+                              <td className="font-bold text-xs text-slate-700">{cust.completedBookings}</td>
+                              <td>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <button
+                                    onClick={() => setSelectedKycForReview(cust)}
+                                    className="p-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                                    title="View Submitted KYC Documents & Photo Scan"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span className="hidden md:inline">Review Docs</span>
+                                  </button>
+
+                                  {cust.kycStatus !== 'verified' && (
+                                    <button
+                                      onClick={() => handleApproveCustomerKyc(cust.id)}
+                                      className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                                      title="Quick Approve KYC"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span className="hidden md:inline">Approve</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => setEditingCustomer(cust)}
+                                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer transition-colors"
+                                    title="Edit Customer Profile"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleDeleteCustomer(cust.id)}
+                                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold cursor-pointer transition-colors"
+                                    title="Delete Customer Account"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* TAB: SUB-ADMINS & ROLES */}
               {adminTab === 'SubAdmins' && (
-                <div className="admin-panel space-y-4">
-                  <div className="panel-head">
+                <div className="admin-panel space-y-4 animate-fadeIn">
+                  <div className="panel-head flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                     <div>
                       <h2>Sub-Admin Accounts & Role-Based Access</h2>
-                      <p className="text-xs text-slate-500">Manage your operations team, ticketing agents, and support administrators.</p>
+                      <p className="text-xs text-slate-500">Manage operations admins, ticketing agents, KYC compliance officers, and support staff.</p>
                     </div>
-                    <button className="primary" onClick={() => setShowAddSubAdminModal(true)}>
-                      + Create Sub-Admin
+                    <button className="primary flex items-center gap-1.5" onClick={() => setShowAddSubAdminModal(true)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Create Sub-Admin</span>
                     </button>
                   </div>
 
@@ -1119,15 +1582,16 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                           <th>Email</th>
                           <th>Role</th>
                           <th>Status</th>
+                          <th>Permissions</th>
                           <th>Last Active</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {subAdmins.map((admin) => (
-                          <tr key={admin.id}>
-                            <td className="font-bold text-slate-800">{admin.name}</td>
-                            <td>{admin.email}</td>
+                          <tr key={admin.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="font-bold text-slate-900 text-xs">{admin.name}</td>
+                            <td className="text-xs text-slate-600">{admin.email}</td>
                             <td>
                               <span className={`role-badge ${
                                 admin.role === 'Super Admin' ? 'role-super' :
@@ -1138,28 +1602,42 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                               </span>
                             </td>
                             <td>
-                              <span className={admin.status === 'Active' ? 'ok' : 'pending'}>
+                              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                admin.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                              }`}>
                                 {admin.status}
                               </span>
                             </td>
-                            <td>{admin.lastActive}</td>
                             <td>
-                              <div className="flex gap-2">
+                              <div className="flex flex-wrap gap-1 max-w-xs">
+                                {admin.permissions.map((p, idx) => (
+                                  <span key={idx} className="text-[9px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium border border-slate-200">
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="text-xs text-slate-500">{admin.lastActive}</td>
+                            <td>
+                              <div className="flex items-center gap-2">
                                 <button 
-                                  className="text-teal-600 font-bold hover:underline"
-                                  onClick={() => {
-                                    setSubAdmins(subAdmins.map(a => a.id === admin.id ? { ...a, status: a.status === 'Active' ? 'Suspended' : 'Active' } : a));
-                                    showToast(`Status updated for ${admin.name}`);
-                                  }}
+                                  className="text-teal-600 text-xs font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                                  onClick={() => setEditingSubAdmin(admin)}
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  <span>Edit</span>
+                                </button>
+                                <button 
+                                  className={`text-xs font-bold hover:underline cursor-pointer ${
+                                    admin.status === 'Active' ? 'text-amber-600' : 'text-emerald-600'
+                                  }`}
+                                  onClick={() => handleToggleSubAdmin(admin.id)}
                                 >
                                   {admin.status === 'Active' ? 'Suspend' : 'Activate'}
                                 </button>
                                 <button 
-                                  className="text-rose-500 font-bold hover:underline"
-                                  onClick={() => {
-                                    setSubAdmins(subAdmins.filter(a => a.id !== admin.id));
-                                    showToast(`Account for ${admin.name} removed`);
-                                  }}
+                                  className="text-rose-500 text-xs font-bold hover:underline cursor-pointer"
+                                  onClick={() => handleDeleteSubAdmin(admin.id)}
                                 >
                                   Delete
                                 </button>
@@ -1175,15 +1653,46 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 
               {/* TAB: ROUTES & TRIPS */}
               {adminTab === 'Routes' && (
-                <div className="admin-panel space-y-4">
-                  <div className="panel-head">
+                <div className="admin-panel space-y-4 animate-fadeIn">
+                  <div className="panel-head flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                     <div>
                       <h2>Mindanao Travel Routes & Schedules</h2>
-                      <p className="text-xs text-slate-500">{schedules.length} active transportation routes.</p>
+                      <p className="text-xs text-slate-500">{schedules.length} active transportation routes (Ferry, Bus, Flight).</p>
                     </div>
-                    <button className="primary" onClick={() => setShowAddRouteModal(true)}>
-                      + Add Route
+                    <button className="primary flex items-center gap-1.5" onClick={() => setShowAddRouteModal(true)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Route</span>
                     </button>
+                  </div>
+
+                  {/* Route Search & Filter */}
+                  <div className="flex flex-col sm:flex-row gap-2 items-center justify-between pt-1">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search origin, destination, operator..."
+                        value={routeSearchQuery}
+                        onChange={(e) => setRouteSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto text-xs">
+                      {(['all', 'ferry', 'bus', 'flight'] as const).map(type => (
+                        <button
+                          key={type}
+                          onClick={() => setRouteTypeFilter(type)}
+                          className={`px-3 py-1 rounded-xl font-bold uppercase text-[10px] tracking-wide transition-colors cursor-pointer ${
+                            routeTypeFilter === type
+                              ? 'bg-teal-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="table-responsive">
@@ -1196,19 +1705,54 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                           <th>Duration</th>
                           <th>Base Fare</th>
                           <th>Available Seats</th>
+                          <th>Class</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {schedules.map((s) => (
-                          <tr key={s.id}>
-                            <td className="font-semibold text-slate-800">{s.transportType.toUpperCase()}</td>
-                            <td className="font-bold text-slate-800">{s.operatorName}</td>
-                            <td>{s.origin} → {s.destination}</td>
-                            <td>{s.duration}</td>
-                            <td className="font-bold text-teal-600">₱{s.baseFare.toLocaleString()}</td>
-                            <td>{s.availableSeats} / {s.totalSeats}</td>
-                          </tr>
-                        ))}
+                        {schedules
+                          .filter(s => {
+                            const q = routeSearchQuery.toLowerCase();
+                            const matchQ = s.origin.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.operatorName.toLowerCase().includes(q);
+                            const matchType = routeTypeFilter === 'all' || s.transportType === routeTypeFilter;
+                            return matchQ && matchType;
+                          })
+                          .map((s) => (
+                            <tr key={s.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td>
+                                <span className="font-extrabold text-[10px] uppercase bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                                  {s.transportType}
+                                </span>
+                              </td>
+                              <td className="font-bold text-slate-800 text-xs">{s.operatorName}</td>
+                              <td className="text-xs font-semibold">{s.origin} → {s.destination}</td>
+                              <td className="text-xs text-slate-600">{s.duration}</td>
+                              <td className="font-bold text-teal-600 text-xs">₱{s.baseFare.toLocaleString()}</td>
+                              <td className="text-xs">
+                                <span className="font-bold">{s.availableSeats}</span> / {s.totalSeats}
+                              </td>
+                              <td className="text-xs text-slate-600">{s.classType}</td>
+                              <td>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setEditingSchedule(s)}
+                                    className="p-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                    title="Edit Route Details"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSchedule(s.id)}
+                                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold cursor-pointer"
+                                    title="Delete Route"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </div>
@@ -1217,15 +1761,46 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 
               {/* TAB: PROMOS & VOUCHERS */}
               {adminTab === 'Promos' && (
-                <div className="admin-panel space-y-4">
-                  <div className="panel-head">
+                <div className="admin-panel space-y-4 animate-fadeIn">
+                  <div className="panel-head flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                     <div>
                       <h2>Active Promo Codes & Suki Vouchers</h2>
-                      <p className="text-xs text-slate-500">{vouchers.length} promotional codes configured.</p>
+                      <p className="text-xs text-slate-500">{vouchers.length} promotional discount codes configured.</p>
                     </div>
-                    <button className="primary" onClick={() => setShowAddPromoModal(true)}>
-                      + Create Promo
+                    <button className="primary flex items-center gap-1.5" onClick={() => setShowAddPromoModal(true)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Create Promo</span>
                     </button>
+                  </div>
+
+                  {/* Promo Search & Filter */}
+                  <div className="flex flex-col sm:flex-row gap-2 items-center justify-between pt-1">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search promo code or title..."
+                        value={promoSearchQuery}
+                        onChange={(e) => setPromoSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs">
+                      {(['all', 'active', 'expired'] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setPromoFilter(tab)}
+                          className={`px-3 py-1 rounded-xl font-bold uppercase text-[10px] tracking-wide transition-colors cursor-pointer ${
+                            promoFilter === tab
+                              ? 'bg-orange-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="table-responsive">
@@ -1237,20 +1812,62 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                           <th>Discount</th>
                           <th>Min Spend</th>
                           <th>Valid Until</th>
+                          <th>Status</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {vouchers.map((v) => (
-                          <tr key={v.id}>
-                            <td className="font-mono font-bold text-orange-600">{v.code}</td>
-                            <td>{v.title}</td>
-                            <td className="font-bold">
-                              {v.discountType === 'percentage' ? `${v.discountValue}% OFF` : `₱${v.discountValue} OFF`}
-                            </td>
-                            <td>₱{v.minSpend}</td>
-                            <td>{v.validUntil}</td>
-                          </tr>
-                        ))}
+                        {vouchers
+                          .filter(v => {
+                            const q = promoSearchQuery.toLowerCase();
+                            const matchQ = v.code.toLowerCase().includes(q) || v.title.toLowerCase().includes(q);
+                            const isExpired = new Date(v.validUntil) < new Date();
+                            const matchStatus = promoFilter === 'all' || (promoFilter === 'active' ? !isExpired : isExpired);
+                            return matchQ && matchStatus;
+                          })
+                          .map((v) => (
+                            <tr key={v.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="font-mono font-bold text-orange-600 text-xs">{v.code}</td>
+                              <td className="text-xs font-semibold text-slate-800">{v.title}</td>
+                              <td className="font-bold text-xs text-slate-900">
+                                {v.discountType === 'percentage' ? `${v.discountValue}% OFF` : `₱${v.discountValue} OFF`}
+                              </td>
+                              <td className="text-xs text-slate-600">₱{v.minSpend}</td>
+                              <td className="text-xs text-slate-600">{v.validUntil}</td>
+                              <td>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                  v.claimed ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                                }`}>
+                                  {v.claimed ? 'Active' : 'Paused'}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setEditingVoucher(v)}
+                                    className="p-1.5 rounded-lg bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                    title="Edit Promo Voucher"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleVoucher(v.id)}
+                                    className="text-xs font-bold text-slate-600 hover:text-slate-900 underline cursor-pointer"
+                                  >
+                                    {v.claimed ? 'Pause' : 'Activate'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteVoucher(v.id)}
+                                    className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold cursor-pointer"
+                                    title="Delete Promo Voucher"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </div>
@@ -1259,11 +1876,49 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 
               {/* TAB: BOOKINGS */}
               {adminTab === 'Bookings' && (
-                <div className="admin-panel space-y-4">
-                  <div className="panel-head">
-                    <h2>Live Booking Ledger</h2>
-                    <a onClick={() => showToast('Exporting full booking ledger…')}>Export CSV</a>
+                <div className="admin-panel space-y-4 animate-fadeIn">
+                  <div className="panel-head flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                    <div>
+                      <h2>Live Passenger Booking Ledger</h2>
+                      <p className="text-xs text-slate-500">{bookings.length} total bookings recorded across Mindanao routes.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a onClick={() => showToast('Exporting full booking ledger CSV file…')} className="cursor-pointer text-xs text-teal-600 font-bold hover:underline">
+                        Export CSV
+                      </a>
+                    </div>
                   </div>
+
+                  {/* Booking Search & Filter */}
+                  <div className="flex flex-col sm:flex-row gap-2 items-center justify-between pt-1">
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search booking code, passenger, route..."
+                        value={bookingSearchQuery}
+                        onChange={(e) => setBookingSearchQuery(e.target.value)}
+                        className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto text-xs">
+                      {(['all', 'confirmed', 'completed', 'pending', 'cancelled'] as const).map(status => (
+                        <button
+                          key={status}
+                          onClick={() => setBookingStatusFilter(status)}
+                          className={`px-3 py-1 rounded-xl font-bold uppercase text-[10px] tracking-wide transition-colors cursor-pointer ${
+                            bookingStatusFilter === status
+                              ? 'bg-teal-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="table-responsive">
                     <table>
                       <thead>
@@ -1274,32 +1929,82 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                           <th>Class</th>
                           <th>Amount</th>
                           <th>Status</th>
-                          <th>Action</th>
+                          <th>Payment</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {bookings.map((b) => (
-                          <tr key={b.id}>
-                            <td className="font-mono font-bold">{b.bookingCode}</td>
-                            <td>{b.passengers[0]?.fullName || 'Maria Santos'}</td>
-                            <td>{b.origin} → {b.destination}</td>
-                            <td>{b.selectedClass}</td>
-                            <td className="font-bold">₱{b.totalPaid.toLocaleString()}</td>
-                            <td>
-                              <span className={b.status === 'confirmed' ? 'ok' : 'pending'}>
-                                {b.status.toUpperCase()}
-                              </span>
-                            </td>
-                            <td>
-                              <button 
-                                className="text-teal-600 font-bold hover:underline"
-                                onClick={() => setSelectedTicketCode(b.bookingCode)}
-                              >
-                                View Ticket
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {bookings
+                          .filter(b => {
+                            const q = bookingSearchQuery.toLowerCase();
+                            const matchQ = b.bookingCode.toLowerCase().includes(q) ||
+                              (b.passengers[0]?.fullName || '').toLowerCase().includes(q) ||
+                              b.origin.toLowerCase().includes(q) ||
+                              b.destination.toLowerCase().includes(q);
+                            const matchStatus = bookingStatusFilter === 'all' || b.status === bookingStatusFilter;
+                            return matchQ && matchStatus;
+                          })
+                          .map((b) => (
+                            <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="font-mono font-bold text-xs text-slate-900">{b.bookingCode}</td>
+                              <td>
+                                <div className="text-xs font-bold text-slate-900">{b.passengers[0]?.fullName || 'Maria Santos'}</div>
+                                <div className="text-[10px] text-slate-400">{b.passengers[0]?.mobile || '+63 917...'}</div>
+                              </td>
+                              <td className="text-xs font-semibold">{b.origin} → {b.destination}</td>
+                              <td className="text-xs text-slate-700">{b.selectedClass}</td>
+                              <td className="font-bold text-xs text-slate-900">₱{b.totalPaid.toLocaleString()}</td>
+                              <td>
+                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                  b.status === 'confirmed' ? 'bg-emerald-100 text-emerald-800' :
+                                  b.status === 'completed' ? 'bg-teal-100 text-teal-800' :
+                                  b.status === 'cancelled' ? 'bg-rose-100 text-rose-800' :
+                                  'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {b.status}
+                                </span>
+                              </td>
+                              <td className="text-xs text-slate-600">{b.paymentMethod}</td>
+                              <td>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <button 
+                                    className="p-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                    onClick={() => setSelectedTicketCode(b.bookingCode)}
+                                    title="View Ticket QR Code"
+                                  >
+                                    <QrCode className="w-3.5 h-3.5" />
+                                    <span>Ticket</span>
+                                  </button>
+
+                                  <button
+                                    className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer"
+                                    onClick={() => setEditingBooking(b)}
+                                    title="Edit Booking"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {b.status !== 'cancelled' && (
+                                    <button
+                                      className="p-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold cursor-pointer"
+                                      onClick={() => handleRefundBooking(b.id)}
+                                      title="Cancel & Issue Full Refund"
+                                    >
+                                      Refund
+                                    </button>
+                                  )}
+
+                                  <button
+                                    className="p-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold cursor-pointer"
+                                    onClick={() => handleDeleteBooking(b.id)}
+                                    title="Delete Booking Record"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </div>
@@ -1632,29 +2337,6 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                   <div className="eyebrow"><label>DISCOVER MINDANAO</label></div>
                   <h1>Your Journey<br /><span>Starts Here.</span></h1>
                   <p>Book flights, ferries, and buses across Mindanao while earning <b>Suki Rewards</b> on every journey.</p>
-                  <div className="hero-pills chips">
-                    <button 
-                      className={`hero-pill ${transportTab === 'flight' ? 'active' : ''}`}
-                      onClick={() => { setTransportTab('flight'); showToast('Flight mode selected'); }}
-                    >
-                      <Plane className="w-3.5 h-3.5" />
-                      <span>Flights</span>
-                    </button>
-                    <button 
-                      className={`hero-pill ${transportTab === 'ferry' ? 'active' : ''}`}
-                      onClick={() => { setTransportTab('ferry'); showToast('Ferry mode selected'); }}
-                    >
-                      <Ship className="w-3.5 h-3.5" />
-                      <span>Ferries</span>
-                    </button>
-                    <button 
-                      className={`hero-pill ${transportTab === 'bus' ? 'active' : ''}`}
-                      onClick={() => { setTransportTab('bus'); showToast('Bus mode selected'); }}
-                    >
-                      <Bus className="w-3.5 h-3.5" />
-                      <span>Buses</span>
-                    </button>
-                  </div>
                 </div>
                 <div className="hero-script script">More destinations.<br />More stories.<br />Mindanao.</div>
 
@@ -2154,21 +2836,8 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 <button onClick={() => showToast('Travel Policies: 24h flexible cancellations on select routes')}>Travel Policies</button>
                 <button onClick={() => showToast('Terms: Official Philippine domestic ticketing conditions apply')}>Terms & Conditions</button>
                 <button onClick={() => showToast('Privacy: User data encrypted with standard Philippine privacy compliance')}>Privacy Policy</button>
-                <button onClick={() => setVercelModalOpen(true)} className="text-teal-400 font-bold flex items-center gap-1">
-                  <Rocket className="w-3.5 h-3.5" />
-                  <span>Deploy to Vercel</span>
-                </button>
               </div>
               <div className="stores flex items-center gap-2">
-                <button
-                  onClick={() => setVercelModalOpen(true)}
-                  className="bg-black text-white border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold hover:bg-slate-900 transition-colors"
-                >
-                  <svg className="w-3 h-3 fill-white" viewBox="0 0 1155 1000">
-                    <path d="m577.3 0 577.4 1000H0z" />
-                  </svg>
-                  <span>Deploy to Vercel</span>
-                </button>
                 <button onClick={() => showToast('Google Play Android app coming soon!')}>Google Play</button>
                 <button onClick={() => showToast('iOS App Store app coming soon!')}>App Store</button>
               </div>
@@ -2512,6 +3181,157 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal: Add Customer */}
+      {showAddCustomerModal && (
+        <div className="admin-modal-overlay" onClick={() => setShowAddCustomerModal(false)}>
+          <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+              <h2 className="text-base font-extrabold text-slate-900">+ Create Customer Account</h2>
+              <button 
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg" 
+                onClick={() => setShowAddCustomerModal(false)}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateCustomer} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="admin-form-group">
+                  <label>Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Juanita Cruz"
+                    value={newCustomerForm.name}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label>Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="juanita@gmail.com"
+                    value={newCustomerForm.email}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="admin-form-group">
+                  <label>Mobile Phone</label>
+                  <input
+                    type="text"
+                    placeholder="+63 917 123 4567"
+                    value={newCustomerForm.phone}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label>Initial Suki Tier</label>
+                  <select
+                    value={newCustomerForm.tier}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, tier: e.target.value })}
+                  >
+                    <option value="Starter Suki">Starter Suki</option>
+                    <option value="Plus Suki">Plus Suki</option>
+                    <option value="Gold Suki">Gold Suki</option>
+                    <option value="VIP Suki">VIP Suki</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="admin-form-group">
+                  <label>ID Document Type</label>
+                  <input
+                    type="text"
+                    value={newCustomerForm.idType}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, idType: e.target.value })}
+                  />
+                </div>
+                <div className="admin-form-group">
+                  <label>Government ID Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 4829-1092-3849"
+                    value={newCustomerForm.idNumber}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, idNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-600"
+                  onClick={() => setShowAddCustomerModal(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="primary px-5 py-2 rounded-xl text-xs font-bold">
+                  Create Customer
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Admin KYC Review Modal */}
+      {selectedKycForReview && (
+        <ViewKycDocsModal
+          customer={selectedKycForReview}
+          onClose={() => setSelectedKycForReview(null)}
+          onApprove={handleApproveCustomerKyc}
+          onReject={handleRejectCustomerKyc}
+          onReset={handleResetCustomerKyc}
+        />
+      )}
+
+      {/* Interactive Admin Edit Customer Modal */}
+      {editingCustomer && (
+        <EditCustomerModal
+          customer={editingCustomer}
+          onClose={() => setEditingCustomer(null)}
+          onSave={handleSaveCustomer}
+        />
+      )}
+
+      {/* Interactive Admin Edit Booking Modal */}
+      {editingBooking && (
+        <EditBookingModal
+          booking={editingBooking}
+          onClose={() => setEditingBooking(null)}
+          onSave={handleSaveBooking}
+        />
+      )}
+
+      {/* Interactive Admin Edit Route Modal */}
+      {editingSchedule && (
+        <EditScheduleModal
+          schedule={editingSchedule}
+          onClose={() => setEditingSchedule(null)}
+          onSave={handleSaveSchedule}
+        />
+      )}
+
+      {/* Interactive Admin Edit Promo Modal */}
+      {editingVoucher && (
+        <EditVoucherModal
+          voucher={editingVoucher}
+          onClose={() => setEditingVoucher(null)}
+          onSave={handleSaveVoucher}
+        />
+      )}
+
+      {/* Interactive Admin Edit Sub-Admin Modal */}
+      {editingSubAdmin && (
+        <EditSubAdminModal
+          subAdmin={editingSubAdmin}
+          onClose={() => setEditingSubAdmin(null)}
+          onSave={handleSaveSubAdmin}
+        />
       )}
 
       {/* ========================================================

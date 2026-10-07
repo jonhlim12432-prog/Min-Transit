@@ -129,18 +129,10 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
               <button
                 type="button"
                 onClick={onOpenKyc}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
+                className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
               >
-                Verify Account Now
-              </button>
-            )}
-            {onQuickVerifyKyc && (
-              <button
-                type="button"
-                onClick={onQuickVerifyKyc}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3.5 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer"
-              >
-                Instant Verify (Demo)
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Verify Account (Submit KYC)</span>
               </button>
             )}
           </div>
@@ -403,18 +395,10 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
                       <button
                         type="button"
                         onClick={onOpenKyc}
-                        className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow cursor-pointer transition-colors"
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow cursor-pointer transition-colors flex items-center gap-1.5"
                       >
-                        Upload ID to Verify
-                      </button>
-                    )}
-                    {onQuickVerifyKyc && (
-                      <button
-                        type="button"
-                        onClick={onQuickVerifyKyc}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow cursor-pointer transition-colors"
-                      >
-                        Instant Verify (Demo Mode)
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Submit Government ID for KYC</span>
                       </button>
                     )}
                   </div>

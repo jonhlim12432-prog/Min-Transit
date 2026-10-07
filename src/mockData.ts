@@ -1067,7 +1067,7 @@ export interface CustomerKycRecord {
   email: string;
   phone: string;
   tier: string;
-  kycStatus: 'verified' | 'pending' | 'unverified';
+  kycStatus: 'verified' | 'pending' | 'rejected' | 'unverified';
   idType: string;
   idNumber: string;
   submittedAt: string;
