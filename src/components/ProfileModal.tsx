@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { UserProfile, SukiAccount, KycVerification, KycStatus } from '../types';
 import { 
   X, Award, User, Mail, ShieldCheck, Ticket, CheckCircle2, 
   AlertCircle, Clock, FileText, Camera, Upload, Phone, 
-  MapPin, Calendar, Lock, Check, Sparkles, RefreshCw
+  MapPin, Calendar, Lock, Check, Sparkles, RefreshCw, Trash2, UploadCloud, Image as ImageIcon
 } from 'lucide-react';
+
+const PRESET_AVATARS = [
+  { id: 'av-1', label: 'Maria (Traveler)', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80' },
+  { id: 'av-2', label: 'Juan (Explorer)', url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=300&q=80' },
+  { id: 'av-3', label: 'Ana (Islander)', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=300&q=80' },
+  { id: 'av-4', label: 'Mark (Backpacker)', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80' },
+  { id: 'av-5', label: 'Carla (Adventurer)', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80' },
+  { id: 'av-6', label: 'Leo (Digital Nomad)', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80' }
+];
 
 interface ProfileModalProps {
   userProfile: UserProfile;
@@ -24,12 +33,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onQuickVerifyKyc
 }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'kyc' | 'settings' | 'suki'>(initialTab);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Local form state for Personal Info
   const [formData, setFormData] = useState({
     firstName: userProfile.firstName,
     lastName: userProfile.lastName,
     fullName: userProfile.fullName,
+    avatarUrl: userProfile.avatarUrl || sukiAccount.avatar || '',
     email: userProfile.email,
     phone: userProfile.phone,
     dob: userProfile.dob,
@@ -44,6 +55,63 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     emergencyPhone: userProfile.emergencyContact.phone,
     emergencyRelationship: userProfile.emergencyContact.relationship
   });
+
+  // Handle image file upload
+  const handleAvatarFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload a valid image file (PNG, JPG, WebP, etc.)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB. Please choose a smaller photo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setFormData(prev => ({ ...prev, avatarUrl: dataUrl }));
+      sukiAccount.avatar = dataUrl;
+      const updated: UserProfile = {
+        ...userProfile,
+        avatarUrl: dataUrl
+      };
+      onUpdateProfile(updated);
+      setSaveSuccessMsg('Profile picture uploaded & updated across your account!');
+      setTimeout(() => setSaveSuccessMsg(''), 4000);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSelectPresetAvatar = (url: string) => {
+    setFormData(prev => ({ ...prev, avatarUrl: url }));
+    sukiAccount.avatar = url;
+    const updated: UserProfile = {
+      ...userProfile,
+      avatarUrl: url
+    };
+    onUpdateProfile(updated);
+    setSaveSuccessMsg('Avatar updated successfully!');
+    setTimeout(() => setSaveSuccessMsg(''), 3500);
+  };
+
+  const handleRemoveAvatar = () => {
+    setFormData(prev => ({ ...prev, avatarUrl: '' }));
+    sukiAccount.avatar = '';
+    const updated: UserProfile = {
+      ...userProfile,
+      avatarUrl: ''
+    };
+    onUpdateProfile(updated);
+    setSaveSuccessMsg('Profile picture removed (reverted to initials)');
+    setTimeout(() => setSaveSuccessMsg(''), 3500);
+  };
+
+  // Local form state for KYC Verification
 
   // Local form state for KYC Verification
   const [kycForm, setKycForm] = useState({
@@ -76,6 +144,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       firstName: formData.firstName,
       lastName: formData.lastName,
       fullName: `${formData.firstName} ${formData.lastName}`.trim(),
+      avatarUrl: formData.avatarUrl,
       email: formData.email,
       phone: formData.phone,
       dob: formData.dob,
@@ -162,17 +231,39 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-fadeIn my-6 relative flex flex-col max-h-[92vh]">
         
+        {/* Hidden File Input for Avatar Upload */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          accept="image/*" 
+          className="hidden" 
+          onChange={handleAvatarFileUpload} 
+        />
+
         {/* Modal Top Banner */}
         <div className="bg-slate-900 text-white p-5 sm:p-6 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3.5">
-            <div className="relative">
-              <img 
-                src={sukiAccount.avatar} 
-                alt="" 
-                className="w-12 h-12 rounded-2xl object-cover border-2 border-teal-400" 
-              />
+            <div 
+              className="relative group cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+              title="Click to upload new profile photo"
+            >
+              {formData.avatarUrl ? (
+                <img 
+                  src={formData.avatarUrl} 
+                  alt={userProfile.fullName} 
+                  className="w-12 h-12 rounded-2xl object-cover border-2 border-teal-400 group-hover:opacity-80 transition-opacity" 
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white font-bold flex items-center justify-center text-base border-2 border-teal-400">
+                  {userProfile.firstName?.[0] || 'M'}{userProfile.lastName?.[0] || 'S'}
+                </div>
+              )}
+              <span className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-4 h-4 text-white" />
+              </span>
               {userProfile.kyc.status === 'verified' && (
-                <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5" title="KYC Verified">
+                <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 shadow-sm" title="KYC Verified">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </span>
               )}
@@ -257,7 +348,94 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
               TAB 1: PROFILE INFORMATION
           ======================================================== */}
           {activeTab === 'info' && (
-            <form onSubmit={handleSaveInfo} className="space-y-5 animate-fadeIn">
+            <form onSubmit={handleSaveInfo} className="space-y-6 animate-fadeIn">
+
+              {/* Profile Picture Upload Card */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-teal-600" />
+                    <span>Profile Picture & Avatar</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-500 font-medium">PNG, JPG, WebP up to 5MB</span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-5">
+                  {/* Avatar Display */}
+                  <div 
+                    className="relative group cursor-pointer shrink-0"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Click to select image file"
+                  >
+                    {formData.avatarUrl ? (
+                      <img 
+                        src={formData.avatarUrl} 
+                        alt="Profile" 
+                        className="w-20 h-20 rounded-2xl object-cover border-2 border-teal-500 shadow-md group-hover:scale-105 transition-transform" 
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center text-xl font-bold border-2 border-teal-400 shadow-md">
+                        {formData.firstName?.[0] || 'M'}{formData.lastName?.[0] || 'S'}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-slate-950/40 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <UploadCloud className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+
+                  {/* Actions & File Info */}
+                  <div className="space-y-2 text-center sm:text-left flex-1">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Photo</span>
+                      </button>
+
+                      {formData.avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          className="bg-slate-200 hover:bg-rose-100 hover:text-rose-700 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Remove custom photo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Your photo appears on your digital boarding pass, customer dashboard, and traveler reviews.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Preset Avatars Selector */}
+                <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide block">
+                    Or Choose from Mindanao Traveler Avatars:
+                  </span>
+                  <div className="flex items-center gap-2.5 overflow-x-auto pb-1">
+                    {PRESET_AVATARS.map((av) => (
+                      <button
+                        key={av.id}
+                        type="button"
+                        onClick={() => handleSelectPresetAvatar(av.url)}
+                        className={`p-1 rounded-xl border-2 transition-all shrink-0 cursor-pointer ${
+                          formData.avatarUrl === av.url ? 'border-teal-500 ring-2 ring-teal-500/20 bg-teal-50' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                        title={av.label}
+                      >
+                        <img src={av.url} alt={av.label} className="w-9 h-9 rounded-lg object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider mb-1">Traveler Personal Data</h4>
                 <p className="text-xs text-slate-500">Official passenger name must match your government-issued ID for domestic travel clearance.</p>

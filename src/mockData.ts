@@ -1021,6 +1021,7 @@ export const INITIAL_USER_PROFILE: UserProfile = {
   fullName: 'Maria Santos',
   firstName: 'Maria',
   lastName: 'Santos',
+  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
   email: 'maria.santos@example.com',
   phone: '+63 917 123 4567',
   dob: '1992-05-14',

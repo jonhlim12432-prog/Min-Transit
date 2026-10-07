@@ -331,7 +331,8 @@ export default function App() {
     setSukiAccount(prev => ({
       ...prev,
       name: updated.fullName,
-      email: updated.email
+      email: updated.email,
+      avatar: updated.avatarUrl || prev.avatar
     }));
     setCustomersKyc(prev => prev.map(c => c.email === updated.email ? {
       ...c,
@@ -1325,7 +1326,15 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               <a className="active" style={{ cursor: 'pointer' }}>My Trips</a>
             </nav>
             <a className="user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} style={{ cursor: 'pointer' }}>
-              <User className="w-3.5 h-3.5" />
+              {userProfile.avatarUrl ? (
+                <img 
+                  src={userProfile.avatarUrl} 
+                  alt="" 
+                  className="w-5 h-5 rounded-full object-cover border border-teal-400" 
+                />
+              ) : (
+                <User className="w-3.5 h-3.5" />
+              )}
               <span>{userProfile.firstName || 'Maria'}</span>
               {userProfile.kyc.status === 'verified' ? (
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
@@ -1351,9 +1360,13 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 <span className="text-label">{userDashSidebarMinimized ? 'Expand Menu' : 'Minimize Menu'}</span>
               </button>
 
-              <div className="dash-user cursor-pointer" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Click to view & edit Profile & KYC">
-                <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold mx-auto mb-1">
-                  {userProfile.firstName?.[0] || 'M'}{userProfile.lastName?.[0] || 'S'}
+              <div className="dash-user cursor-pointer group" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Click to view & edit Profile & KYC">
+                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-teal-400 bg-teal-100 text-teal-800 flex items-center justify-center font-bold mx-auto mb-1.5 shadow-sm group-hover:scale-105 transition-transform">
+                  {userProfile.avatarUrl ? (
+                    <img src={userProfile.avatarUrl} alt={userProfile.fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{userProfile.firstName?.[0] || 'M'}{userProfile.lastName?.[0] || 'S'}</span>
+                  )}
                 </div>
                 <b>{userProfile.fullName || 'Maria Santos'}</b>
                 <small className="flex items-center justify-center gap-1">
@@ -1577,7 +1590,13 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 <Bell className="w-4 h-4 text-slate-200" />
               </button>
               <button className="profile user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Profile Settings & KYC Verification">
-                <span className="avatar">{userProfile.firstName?.[0] || 'M'}</span>
+                <span className="avatar overflow-hidden flex items-center justify-center border border-teal-300">
+                  {userProfile.avatarUrl ? (
+                    <img src={userProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    userProfile.firstName?.[0] || 'M'
+                  )}
+                </span>
                 <span>{userProfile.firstName || sukiAccount.name.split(' ')[0]}</span>
                 {userProfile.kyc.status === 'verified' ? (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { 
   MOCK_DESTINATIONS, 
@@ -17,6 +17,25 @@ import { Booking } from '../src/types';
 
 const app = express();
 app.use(express.json());
+
+// CORS & Security Headers Middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// Normalize URL to handle both direct and rewritten routes (/api/... or /...)
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (!req.url.startsWith('/api') && !req.url.startsWith('/api/')) {
+    req.url = '/api' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+  }
+  next();
+});
 
 // In-memory data store for serverless demo
 let bookingsStore: Booking[] = [
@@ -61,16 +80,16 @@ let notificationsStore = [...MOCK_NOTIFICATIONS];
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
-// Health endpoint
-app.get('/api/health', (req, res) => {
+// Health check
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ 
     status: 'ok', 
-    platform: 'Vercel Serverless',
+    platform: 'Vercel Serverless Function',
     timestamp: new Date().toISOString() 
   });
 });
 
-app.get('/api/destinations', (req, res) => {
+app.get('/api/destinations', (req: Request, res: Response) => {
   const { category, search } = req.query;
   let results = [...MOCK_DESTINATIONS];
   if (category && category !== 'all') {
@@ -83,7 +102,7 @@ app.get('/api/destinations', (req, res) => {
   res.json(results);
 });
 
-app.get('/api/destinations/:slug', (req, res) => {
+app.get('/api/destinations/:slug', (req: Request, res: Response) => {
   const dest = MOCK_DESTINATIONS.find(d => d.slug === req.params.slug);
   if (!dest) {
     return res.status(404).json({ error: 'Destination not found' });
@@ -91,11 +110,11 @@ app.get('/api/destinations/:slug', (req, res) => {
   res.json(dest);
 });
 
-app.get('/api/operators', (req, res) => {
+app.get('/api/operators', (_req: Request, res: Response) => {
   res.json(MOCK_OPERATORS);
 });
 
-app.get('/api/schedules', (req, res) => {
+app.get('/api/schedules', (req: Request, res: Response) => {
   const { origin, destination, transportType } = req.query;
   let schedules = [...MOCK_SCHEDULES];
 
@@ -112,25 +131,25 @@ app.get('/api/schedules', (req, res) => {
   res.json(schedules);
 });
 
-app.get('/api/vouchers', (req, res) => {
+app.get('/api/vouchers', (_req: Request, res: Response) => {
   res.json(vouchersStore);
 });
 
-app.post('/api/vouchers/claim', (req, res) => {
+app.post('/api/vouchers/claim', (req: Request, res: Response) => {
   const { voucherId } = req.body;
   vouchersStore = vouchersStore.map(v => v.id === voucherId ? { ...v, claimed: true } : v);
   res.json({ success: true, vouchers: vouchersStore });
 });
 
-app.get('/api/promotions', (req, res) => {
+app.get('/api/promotions', (_req: Request, res: Response) => {
   res.json(MOCK_PROMOTIONS);
 });
 
-app.get('/api/guides', (req, res) => {
+app.get('/api/guides', (_req: Request, res: Response) => {
   res.json(MOCK_GUIDES);
 });
 
-app.get('/api/guides/:slug', (req, res) => {
+app.get('/api/guides/:slug', (req: Request, res: Response) => {
   const guide = MOCK_GUIDES.find(g => g.slug === req.params.slug);
   if (!guide) {
     return res.status(404).json({ error: 'Guide not found' });
@@ -138,22 +157,22 @@ app.get('/api/guides/:slug', (req, res) => {
   res.json(guide);
 });
 
-app.get('/api/reviews', (req, res) => {
+app.get('/api/reviews', (_req: Request, res: Response) => {
   res.json(MOCK_REVIEWS);
 });
 
-app.get('/api/suki', (req, res) => {
+app.get('/api/suki', (_req: Request, res: Response) => {
   res.json({
     account: sukiStore,
     pointHistory: pointHistoryStore
   });
 });
 
-app.get('/api/bookings', (req, res) => {
+app.get('/api/bookings', (_req: Request, res: Response) => {
   res.json(bookingsStore);
 });
 
-app.post('/api/bookings', (req, res) => {
+app.post('/api/bookings', (req: Request, res: Response) => {
   const bookingData = req.body;
   const newBooking: Booking = {
     id: `bk-${Date.now()}`,
@@ -191,7 +210,7 @@ app.post('/api/bookings', (req, res) => {
   res.json(newBooking);
 });
 
-app.post('/api/bookings/:id/cancel', (req, res) => {
+app.post('/api/bookings/:id/cancel', (req: Request, res: Response) => {
   bookingsStore = bookingsStore.map(b => {
     if (b.id === req.params.id) {
       return {
@@ -206,11 +225,11 @@ app.post('/api/bookings/:id/cancel', (req, res) => {
   res.json({ success: true, bookings: bookingsStore });
 });
 
-app.get('/api/support', (req, res) => {
+app.get('/api/support', (_req: Request, res: Response) => {
   res.json(supportTicketsStore);
 });
 
-app.post('/api/support', (req, res) => {
+app.post('/api/support', (req: Request, res: Response) => {
   const ticket = req.body;
   const newTicket = {
     id: `sup-${Date.now()}`,
@@ -224,16 +243,16 @@ app.post('/api/support', (req, res) => {
   res.json(newTicket);
 });
 
-app.get('/api/notifications', (req, res) => {
+app.get('/api/notifications', (_req: Request, res: Response) => {
   res.json(notificationsStore);
 });
 
-app.post('/api/notifications/read', (req, res) => {
+app.post('/api/notifications/read', (_req: Request, res: Response) => {
   notificationsStore = notificationsStore.map(n => ({ ...n, read: true }));
   res.json({ success: true });
 });
 
-app.post('/api/ai/recommend', async (req, res) => {
+app.post('/api/ai/recommend', async (req: Request, res: Response) => {
   const { prompt, destination, budget, style } = req.body;
   
   if (!ai) {
@@ -255,7 +274,7 @@ app.post('/api/ai/recommend', async (req, res) => {
   }
 });
 
-app.get('/api/admin/metrics', (req, res) => {
+app.get('/api/admin/metrics', (_req: Request, res: Response) => {
   res.json({
     totalBookings: bookingsStore.length,
     totalRevenue: bookingsStore.reduce((sum, b) => sum + b.totalPaid, 0),
@@ -264,6 +283,11 @@ app.get('/api/admin/metrics', (req, res) => {
     destinationsCount: MOCK_DESTINATIONS.length,
     sukiMembers: 8420
   });
+});
+
+// Fallback 404 handler for unmatched API routes
+app.use('/api', (_req: Request, res: Response) => {
+  res.status(404).json({ error: 'API route not found' });
 });
 
 export default app;
