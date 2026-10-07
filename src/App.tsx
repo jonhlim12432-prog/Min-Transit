@@ -29,6 +29,9 @@ import {
   EditVoucherModal, 
   EditSubAdminModal 
 } from './components/AdminManagerModals';
+import { db } from './firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { OperationType, handleFirestoreError } from './utils/firestoreHelpers';
 
 export default function App() {
   // Navigation & View mode: 'landing' | 'dashboard' | 'admin' | 'search-results' | 'checkout' | 'confirmation'
@@ -406,8 +409,56 @@ export default function App() {
     } catch {}
   }, [userProfile]);
 
-  // Server Synchronization for Cross-Device / Cross-User Vercel Persistence
+  // Real-time Cloud Firestore & Cross-Device Synchronization for Vercel Deployments
   useEffect(() => {
+    let unsubSettings: (() => void) | null = null;
+    let unsubSchedules: (() => void) | null = null;
+    let unsubVouchers: (() => void) | null = null;
+    let unsubBookings: (() => void) | null = null;
+    let unsubKyc: (() => void) | null = null;
+    let unsubSubAdmins: (() => void) | null = null;
+
+    try {
+      unsubSettings = onSnapshot(doc(db, 'app_state', 'siteSettings'), (snap) => {
+        if (snap.exists() && snap.data()) {
+          setSiteSettings(snap.data() as SiteSettings);
+        }
+      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/siteSettings'));
+
+      unsubSchedules = onSnapshot(doc(db, 'app_state', 'schedules'), (snap) => {
+        if (snap.exists() && snap.data()?.items) {
+          setSchedules(snap.data()?.items);
+        }
+      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/schedules'));
+
+      unsubVouchers = onSnapshot(doc(db, 'app_state', 'vouchers'), (snap) => {
+        if (snap.exists() && snap.data()?.items) {
+          setVouchers(snap.data()?.items);
+        }
+      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/vouchers'));
+
+      unsubBookings = onSnapshot(doc(db, 'app_state', 'bookings'), (snap) => {
+        if (snap.exists() && snap.data()?.items) {
+          setBookings(snap.data()?.items);
+        }
+      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/bookings'));
+
+      unsubKyc = onSnapshot(doc(db, 'app_state', 'customersKyc'), (snap) => {
+        if (snap.exists() && snap.data()?.items) {
+          setCustomersKyc(snap.data()?.items);
+        }
+      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/customersKyc'));
+
+      unsubSubAdmins = onSnapshot(doc(db, 'app_state', 'subAdmins'), (snap) => {
+        if (snap.exists() && snap.data()?.items) {
+          setSubAdmins(snap.data()?.items);
+        }
+      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/subAdmins'));
+    } catch (e) {
+      console.warn('Firestore subscription fallback:', e);
+    }
+
+    // Initial sync fetch fallback
     fetch('/api/admin/state')
       .then(res => res.json())
       .then(data => {
@@ -420,9 +471,33 @@ export default function App() {
         if (data.sukiAccount) setSukiAccount(data.sukiAccount);
       })
       .catch(() => {});
+
+    return () => {
+      if (unsubSettings) unsubSettings();
+      if (unsubSchedules) unsubSchedules();
+      if (unsubVouchers) unsubVouchers();
+      if (unsubBookings) unsubBookings();
+      if (unsubKyc) unsubKyc();
+      if (unsubSubAdmins) unsubSubAdmins();
+    };
   }, []);
 
+  // Save changes to Cloud Firestore in real-time across all devices
   useEffect(() => {
+    const syncToCloud = async () => {
+      try {
+        await setDoc(doc(db, 'app_state', 'siteSettings'), siteSettings);
+        await setDoc(doc(db, 'app_state', 'schedules'), { items: schedules });
+        await setDoc(doc(db, 'app_state', 'vouchers'), { items: vouchers });
+        await setDoc(doc(db, 'app_state', 'bookings'), { items: bookings });
+        await setDoc(doc(db, 'app_state', 'customersKyc'), { items: customersKyc });
+        await setDoc(doc(db, 'app_state', 'subAdmins'), { items: subAdmins });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'app_state');
+      }
+    };
+    syncToCloud();
+
     const payload = {
       schedules,
       vouchers,
@@ -933,13 +1008,22 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
     return <Bus className={className} />;
   };
 
+  // Helper for modal state check to prevent obscuring action buttons
+  const isAnyModalOpen = Boolean(
+    aiModalOpen || profileModalOpen || notifModalOpen || vercelModalOpen ||
+    selectedKycForReview || editingCustomer || editingBooking || editingSchedule ||
+    editingVoucher || editingSubAdmin || showAddRouteModal || showAddPromoModal ||
+    showAddOperatorModal || showAddDestinationModal || showAddCustomerModal ||
+    showAddSubAdminModal || digitalTicketBooking || mobileMenuOpen
+  );
+
   return (
     <div>
       {/* ========================================================
           FLOATING AI CONCIERGE BUTTON (FAB)
       ======================================================== */}
-      {activeView !== 'admin' && (
-        <aside aria-label="Floating AI Concierge Launcher" className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+      {activeView !== 'admin' && !isAnyModalOpen && (
+        <aside aria-label="Floating AI Concierge Launcher" className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2">
           <button 
             className="group relative flex items-center gap-2.5 bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-700 hover:from-teal-500 hover:to-emerald-600 text-white font-extrabold px-4 sm:px-5 py-3 sm:py-3.5 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all border border-teal-300/30 cursor-pointer"
             onClick={() => setAiModalOpen(true)}
@@ -2407,6 +2491,115 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               <Compass className="w-5 h-5 text-white" />
             </button>
           </header>
+
+          {/* Mobile Drawer Navigation Overlay */}
+          {mobileMenuOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-end animate-fadeIn">
+              <div className="w-[85%] max-w-[320px] bg-slate-900 text-white h-full p-5 flex flex-col justify-between overflow-y-auto shadow-2xl">
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
+                    <div className="flex items-center gap-2">
+                      {renderBrandMark("h-7")}
+                      <span className="font-extrabold text-sm text-white">{siteSettings.siteName}</span>
+                    </div>
+                    <button 
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="p-2 text-slate-400 hover:text-white rounded-full bg-slate-800 cursor-pointer"
+                      aria-label="Close menu"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* User Profile Summary Card */}
+                  <div 
+                    onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                    className="bg-slate-800/80 hover:bg-slate-800 p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 cursor-pointer transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center font-bold text-white overflow-hidden shrink-0 border border-teal-400">
+                      {userProfile.avatarUrl ? (
+                        <img src={userProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        userProfile.firstName?.[0] || 'M'
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-sm text-white truncate">{userProfile.fullName || 'Maria Santos'}</div>
+                      <div className="text-[11px] text-teal-300 font-semibold flex items-center gap-1 mt-0.5">
+                        {userProfile.kyc.status === 'verified' ? (
+                          <span className="text-emerald-400 flex items-center gap-0.5 font-bold">
+                            <ShieldCheck className="w-3 h-3" /> Verified KYC
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 flex items-center gap-0.5 font-bold">
+                            <AlertCircle className="w-3 h-3" /> KYC Required
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Quick Navigation */}
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-2 py-1">Quick Navigation</div>
+                    <button 
+                      onClick={() => { setActiveView('landing'); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-slate-200 hover:bg-slate-800 text-left transition-colors cursor-pointer"
+                    >
+                      <Compass className="w-4 h-4 text-teal-400" />
+                      <span>Explore & Search Trips</span>
+                    </button>
+                    <button 
+                      onClick={() => { setActiveView('dashboard'); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-slate-200 hover:bg-slate-800 text-left transition-colors cursor-pointer"
+                    >
+                      <Ticket className="w-4 h-4 text-amber-400" />
+                      <span>My Trips & Tickets</span>
+                    </button>
+                    <button 
+                      onClick={() => { setNotifModalOpen(true); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-slate-200 hover:bg-slate-800 text-left transition-colors cursor-pointer"
+                    >
+                      <Bell className="w-4 h-4 text-teal-400" />
+                      <span>Notifications</span>
+                    </button>
+                    <button 
+                      onClick={() => { setProfileModalInitialTab('suki'); setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-slate-200 hover:bg-slate-800 text-left transition-colors cursor-pointer"
+                    >
+                      <Award className="w-4 h-4 text-amber-400" />
+                      <span>Suki Rewards ({sukiAccount.points} pts)</span>
+                    </button>
+                    <button 
+                      onClick={() => { setProfileModalInitialTab('kyc'); setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-slate-200 hover:bg-slate-800 text-left transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>Identity Verification (KYC)</span>
+                    </button>
+                  </div>
+
+                  {/* Admin Console Switcher */}
+                  <div className="pt-3 border-t border-slate-800">
+                    <button 
+                      onClick={() => { setActiveView('admin'); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-600 hover:to-emerald-600 text-white font-extrabold text-xs shadow-lg transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-amber-300" />
+                        <span>Admin CMS Console</span>
+                      </div>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-center pt-4 border-t border-slate-800 text-[10px] text-slate-400">
+                  {siteSettings.siteName} {siteSettings.siteSubtitle} • Mobile Responsive
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Main Views for Marketplace */}
           {activeView === 'landing' && (

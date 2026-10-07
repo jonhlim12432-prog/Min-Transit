@@ -1,0 +1,120 @@
+{
+  "entities": {
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global website branding and configurations controlled by admin",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string" },
+        "siteSubtitle": { "type": "string" },
+        "tagline": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "contactEmail": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "announcementText": { "type": "string" },
+        "announcementActive": { "type": "boolean" },
+        "allowNewRegistrations": { "type": "boolean" },
+        "currency": { "type": "string" }
+      }
+    },
+    "Schedule": {
+      "title": "Schedule",
+      "description": "Transportation schedules and routes managed by admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "transportType": { "type": "string" },
+        "operatorName": { "type": "string" },
+        "operatorLogo": { "type": "string" },
+        "departureTime": { "type": "string" },
+        "arrivalTime": { "type": "string" },
+        "basePrice": { "type": "number" },
+        "availableSeats": { "type": "number" },
+        "amenities": { "type": "array" }
+      }
+    },
+    "Voucher": {
+      "title": "Voucher",
+      "description": "Promotional vouchers and discount codes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "discountPercentage": { "type": "number" },
+        "maxDiscount": { "type": "number" },
+        "minSpend": { "type": "number" },
+        "validUntil": { "type": "string" },
+        "claimed": { "type": "boolean" }
+      }
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "User passenger ticket bookings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingCode": { "type": "string" },
+        "userId": { "type": "string" },
+        "scheduleId": { "type": "string" },
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "totalPaid": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "CustomerKyc": {
+      "title": "CustomerKyc",
+      "description": "Customer verification and profile details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "SubAdmin": {
+      "title": "SubAdmin",
+      "description": "Sub-admin team member profiles and access permissions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/site_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global website configuration settings"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/Schedule" },
+      "description": "Route schedules and pricing"
+    },
+    "/vouchers/{voucherId}": {
+      "schema": { "$ref": "#/entities/Voucher" },
+      "description": "Promotional codes and vouchers"
+    },
+    "/bookings/{bookingId}": {
+      "schema": { "$ref": "#/entities/Booking" },
+      "description": "Passanger bookings"
+    },
+    "/customers_kyc/{customerId}": {
+      "schema": { "$ref": "#/entities/CustomerKyc" },
+      "description": "Customer KYC verification records"
+    },
+    "/sub_admins/{adminId}": {
+      "schema": { "$ref": "#/entities/SubAdmin" },
+      "description": "Sub-admin user accounts"
+    }
+  }
+}

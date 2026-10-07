@@ -390,7 +390,8 @@ a {
   background: #eef5f8;
   border-radius: 15px;
   display: flex;
-  width: 430px;
+  width: 100%;
+  max-width: 430px;
   overflow: hidden;
   padding: 3px;
 }

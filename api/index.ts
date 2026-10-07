@@ -11,12 +11,14 @@ import {
   INITIAL_SUKI_ACCOUNT, 
   MOCK_POINT_HISTORY, 
   MOCK_SUPPORT_TICKETS, 
-  MOCK_NOTIFICATIONS 
+  MOCK_NOTIFICATIONS,
+  MOCK_CUSTOMERS_KYC
 } from '../src/mockData';
 import { Booking } from '../src/types';
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // CORS & Security Headers Middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -37,7 +39,9 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// In-memory data store for serverless demo
+// Serverless persistent memory stores
+let schedulesStore = [...MOCK_SCHEDULES];
+let vouchersStore = [...MOCK_VOUCHERS];
 let bookingsStore: Booking[] = [
   {
     id: 'bk-101',
@@ -70,8 +74,51 @@ let bookingsStore: Booking[] = [
     qrCodeToken: 'MTTH-QR-SECURE-CAM-9921'
   }
 ];
-
-let vouchersStore = [...MOCK_VOUCHERS];
+let customersKycStore = [...MOCK_CUSTOMERS_KYC];
+let subAdminsStore = [
+  {
+    id: 'sub-1',
+    name: 'Carlos Mendoza',
+    email: 'carlos.ops@mtth.ph',
+    role: 'Operations Admin',
+    status: 'Active',
+    permissions: ['Manage Bookings', 'Manage Operators', 'Issue Refunds'],
+    createdAt: '2026-08-12',
+    lastActive: '10 mins ago'
+  },
+  {
+    id: 'sub-2',
+    name: 'Eileen Dalisay',
+    email: 'eileen.ticketing@mtth.ph',
+    role: 'Ticketing Agent',
+    status: 'Active',
+    permissions: ['Manage Bookings', 'Issue Tickets'],
+    createdAt: '2026-09-01',
+    lastActive: '1 hour ago'
+  },
+  {
+    id: 'sub-3',
+    name: 'Ramon Bautista',
+    email: 'ramon.support@mtth.ph',
+    role: 'Support Agent',
+    status: 'Active',
+    permissions: ['Manage Support', 'Review Inquiries'],
+    createdAt: '2026-09-15',
+    lastActive: 'Yesterday'
+  }
+];
+let siteSettingsStore = {
+  siteName: 'MTTH',
+  siteSubtitle: 'Mindanao',
+  tagline: 'Your Journey Starts Here',
+  logoUrl: '',
+  contactEmail: 'support@mtth.ph',
+  contactPhone: '+63 88 123 4567',
+  announcementText: 'Mindanao Travel Week — Earn 2X Suki Points on selected routes',
+  announcementActive: true,
+  allowNewRegistrations: true,
+  currency: 'PHP (₱)'
+};
 let sukiStore = { ...INITIAL_SUKI_ACCOUNT };
 let pointHistoryStore = [...MOCK_POINT_HISTORY];
 let supportTicketsStore = [...MOCK_SUPPORT_TICKETS];
@@ -272,6 +319,31 @@ app.post('/api/ai/recommend', async (req: Request, res: Response) => {
     console.error('Gemini AI error:', error);
     res.status(500).json({ error: 'Failed to generate AI recommendation' });
   }
+});
+
+// Admin & Cross-Device State Sync API
+app.get('/api/admin/state', (_req: Request, res: Response) => {
+  res.json({
+    schedules: schedulesStore,
+    vouchers: vouchersStore,
+    bookings: bookingsStore,
+    customersKyc: customersKycStore,
+    subAdmins: subAdminsStore,
+    siteSettings: siteSettingsStore,
+    sukiAccount: sukiStore
+  });
+});
+
+app.post('/api/admin/state', (req: Request, res: Response) => {
+  const { schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount } = req.body;
+  if (schedules) schedulesStore = schedules;
+  if (vouchers) vouchersStore = vouchers;
+  if (bookings) bookingsStore = bookings;
+  if (customersKyc) customersKycStore = customersKyc;
+  if (subAdmins) subAdminsStore = subAdmins;
+  if (siteSettings) siteSettingsStore = siteSettings;
+  if (sukiAccount) sukiStore = sukiAccount;
+  res.json({ success: true });
 });
 
 app.get('/api/admin/metrics', (_req: Request, res: Response) => {
