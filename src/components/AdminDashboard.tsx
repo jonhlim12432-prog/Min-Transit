@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Users, DollarSign, Ticket, Bus, BarChart3, Settings, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Users, DollarSign, Ticket, Bus, BarChart3, Settings, AlertCircle, CheckCircle2, Rocket, Globe, ExternalLink } from 'lucide-react';
 
-export const AdminDashboard: React.FC = () => {
+interface AdminDashboardProps {
+  onOpenVercelDeploy?: () => void;
+}
+
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenVercelDeploy }) => {
   const [metrics, setMetrics] = useState({
     totalBookings: 142,
     totalRevenue: 284500,
@@ -25,14 +29,58 @@ export const AdminDashboard: React.FC = () => {
             Monitor overall platform revenue, bookings, operator verification, Suki tier rules, and destinations CMS.
           </p>
         </div>
-        <div className="flex items-center space-x-3 bg-slate-800 border border-slate-700 px-5 py-3 rounded-2xl">
-          <ShieldCheck className="w-6 h-6 text-emerald-400" />
-          <div className="text-left">
-            <div className="text-[10px] text-slate-400 font-bold uppercase">Security Status</div>
-            <div className="text-xs font-bold text-emerald-300">All Services Secure</div>
+        <div className="flex flex-wrap items-center gap-3">
+          {onOpenVercelDeploy && (
+            <button
+              onClick={onOpenVercelDeploy}
+              className="flex items-center space-x-2 bg-gradient-to-r from-slate-950 to-slate-800 hover:from-black hover:to-slate-900 text-white font-extrabold px-4 py-3 rounded-2xl border border-slate-700 shadow-lg cursor-pointer transition-all hover:scale-105"
+            >
+              <svg className="w-4 h-4 fill-white" viewBox="0 0 1155 1000">
+                <path d="m577.3 0 577.4 1000H0z" />
+              </svg>
+              <span>Deploy to Vercel</span>
+            </button>
+          )}
+          <div className="flex items-center space-x-3 bg-slate-800 border border-slate-700 px-5 py-3 rounded-2xl">
+            <ShieldCheck className="w-6 h-6 text-emerald-400" />
+            <div className="text-left">
+              <div className="text-[10px] text-slate-400 font-bold uppercase">Security Status</div>
+              <div className="text-xs font-bold text-emerald-300">All Services Secure</div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Vercel Cloud Deployment Card */}
+      {onOpenVercelDeploy && (
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 text-white p-6 sm:p-7 rounded-3xl mb-10 border border-slate-800 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-black rounded-2xl border border-slate-700 flex items-center justify-center shrink-0 shadow-md">
+              <svg className="w-6 h-6 fill-white" viewBox="0 0 1155 1000">
+                <path d="m577.3 0 577.4 1000H0z" />
+              </svg>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-lg text-white">Vercel Production Deployment Ready</h3>
+                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  Vite + Edge Configured
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                Root vercel.json, serverless api/index.ts endpoints, and SPA rewrites are generated and ready for instant deployment.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenVercelDeploy}
+            className="bg-white hover:bg-slate-100 text-slate-950 font-extrabold px-6 py-3 rounded-2xl text-xs flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shrink-0 shadow-lg cursor-pointer"
+          >
+            <Rocket className="w-4 h-4 text-teal-600" />
+            <span>Launch Deployment Guide</span>
+          </button>
+        </div>
+      )}
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">

@@ -1,12 +1,13 @@
 import React from 'react';
-import { Compass, Sparkles, ShieldCheck, Ticket, Award } from 'lucide-react';
+import { Compass, Sparkles, ShieldCheck, Ticket, Award, Rocket } from 'lucide-react';
 
 interface FooterProps {
   setActiveTab: (tab: string) => void;
   logoUrl?: string;
+  onOpenVercelDeploy?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ setActiveTab, logoUrl }) => {
+export const Footer: React.FC<FooterProps> = ({ setActiveTab, logoUrl, onOpenVercelDeploy }) => {
   return (
     <footer className="bg-slate-950 text-white pt-16 pb-12 border-t border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -69,7 +70,17 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, logoUrl }) => {
               <li><button onClick={() => setActiveTab('operator')} className="hover:text-white">Operator Portal</button></li>
               <li><button onClick={() => setActiveTab('admin')} className="hover:text-white">Admin Dashboard</button></li>
               <li><button onClick={() => setActiveTab('help')} className="hover:text-white">Help Center & FAQ</button></li>
-              <li><button onClick={() => setActiveTab('help')} className="hover:text-white">Customer Support</button></li>
+              {onOpenVercelDeploy && (
+                <li>
+                  <button 
+                    onClick={onOpenVercelDeploy} 
+                    className="inline-flex items-center gap-1.5 text-teal-300 hover:text-teal-200 font-bold"
+                  >
+                    <Rocket className="w-3.5 h-3.5" />
+                    <span>Deploy to Vercel</span>
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
 
@@ -77,7 +88,18 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, logoUrl }) => {
 
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
           <p>© 2026 Mindanao Travel Ticketing Hub (MTTH). All rights reserved.</p>
-          <div className="flex space-x-6 mt-4 sm:mt-0 font-semibold">
+          <div className="flex items-center space-x-6 mt-4 sm:mt-0 font-semibold">
+            {onOpenVercelDeploy && (
+              <button
+                onClick={onOpenVercelDeploy}
+                className="bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white px-3 py-1 rounded-lg border border-slate-800 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <svg className="w-3 h-3 fill-white" viewBox="0 0 1155 1000">
+                  <path d="m577.3 0 577.4 1000H0z" />
+                </svg>
+                <span>Deploy to Vercel</span>
+              </button>
+            )}
             <span className="hover:text-slate-400 cursor-pointer">Privacy Policy</span>
             <span className="hover:text-slate-400 cursor-pointer">Terms of Service</span>
             <span className="hover:text-slate-400 cursor-pointer">Booking Conditions</span>

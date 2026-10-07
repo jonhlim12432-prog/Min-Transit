@@ -1,0 +1,269 @@
+import express from 'express';
+import { GoogleGenAI } from '@google/genai';
+import { 
+  MOCK_DESTINATIONS, 
+  MOCK_OPERATORS, 
+  MOCK_SCHEDULES, 
+  MOCK_VOUCHERS, 
+  MOCK_PROMOTIONS, 
+  MOCK_GUIDES, 
+  MOCK_REVIEWS, 
+  INITIAL_SUKI_ACCOUNT, 
+  MOCK_POINT_HISTORY, 
+  MOCK_SUPPORT_TICKETS, 
+  MOCK_NOTIFICATIONS 
+} from '../src/mockData';
+import { Booking } from '../src/types';
+
+const app = express();
+app.use(express.json());
+
+// In-memory data store for serverless demo
+let bookingsStore: Booking[] = [
+  {
+    id: 'bk-101',
+    bookingCode: 'MTTH-CAM-8821',
+    userId: 'user-suki-001',
+    scheduleId: 'sch-1',
+    transportType: 'ferry',
+    operatorName: 'SuperFerry Mindanao',
+    operatorLogo: 'SFM',
+    origin: 'Cagayan de Oro',
+    destination: 'Camiguin Island',
+    departureTime: '2026-10-10T06:00:00',
+    arrivalTime: '2026-10-10T09:30:00',
+    passengers: [
+      { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: 'A12' }
+    ],
+    selectedClass: 'Tourist',
+    baseFare: 850,
+    terminalFee: 30,
+    serviceFee: 50,
+    taxes: 45,
+    discountAmount: 85,
+    voucherCode: 'WELCOME10',
+    sukiDiscountAmount: 40,
+    totalPaid: 850,
+    sukiPointsEarned: 250,
+    paymentMethod: 'GCash',
+    status: 'confirmed',
+    createdAt: '2026-10-01T10:00:00Z',
+    qrCodeToken: 'MTTH-QR-SECURE-CAM-9921'
+  }
+];
+
+let vouchersStore = [...MOCK_VOUCHERS];
+let sukiStore = { ...INITIAL_SUKI_ACCOUNT };
+let pointHistoryStore = [...MOCK_POINT_HISTORY];
+let supportTicketsStore = [...MOCK_SUPPORT_TICKETS];
+let notificationsStore = [...MOCK_NOTIFICATIONS];
+
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+// Health endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    platform: 'Vercel Serverless',
+    timestamp: new Date().toISOString() 
+  });
+});
+
+app.get('/api/destinations', (req, res) => {
+  const { category, search } = req.query;
+  let results = [...MOCK_DESTINATIONS];
+  if (category && category !== 'all') {
+    results = results.filter(d => d.category === category);
+  }
+  if (search && typeof search === 'string') {
+    const q = search.toLowerCase();
+    results = results.filter(d => d.name.toLowerCase().includes(q) || d.province.toLowerCase().includes(q) || d.shortDescription.toLowerCase().includes(q));
+  }
+  res.json(results);
+});
+
+app.get('/api/destinations/:slug', (req, res) => {
+  const dest = MOCK_DESTINATIONS.find(d => d.slug === req.params.slug);
+  if (!dest) {
+    return res.status(404).json({ error: 'Destination not found' });
+  }
+  res.json(dest);
+});
+
+app.get('/api/operators', (req, res) => {
+  res.json(MOCK_OPERATORS);
+});
+
+app.get('/api/schedules', (req, res) => {
+  const { origin, destination, transportType } = req.query;
+  let schedules = [...MOCK_SCHEDULES];
+
+  if (origin && typeof origin === 'string') {
+    schedules = schedules.filter(s => s.origin.toLowerCase().includes(origin.toLowerCase()));
+  }
+  if (destination && typeof destination === 'string') {
+    schedules = schedules.filter(s => s.destination.toLowerCase().includes(destination.toLowerCase()));
+  }
+  if (transportType && transportType !== 'all') {
+    schedules = schedules.filter(s => s.transportType === transportType);
+  }
+
+  res.json(schedules);
+});
+
+app.get('/api/vouchers', (req, res) => {
+  res.json(vouchersStore);
+});
+
+app.post('/api/vouchers/claim', (req, res) => {
+  const { voucherId } = req.body;
+  vouchersStore = vouchersStore.map(v => v.id === voucherId ? { ...v, claimed: true } : v);
+  res.json({ success: true, vouchers: vouchersStore });
+});
+
+app.get('/api/promotions', (req, res) => {
+  res.json(MOCK_PROMOTIONS);
+});
+
+app.get('/api/guides', (req, res) => {
+  res.json(MOCK_GUIDES);
+});
+
+app.get('/api/guides/:slug', (req, res) => {
+  const guide = MOCK_GUIDES.find(g => g.slug === req.params.slug);
+  if (!guide) {
+    return res.status(404).json({ error: 'Guide not found' });
+  }
+  res.json(guide);
+});
+
+app.get('/api/reviews', (req, res) => {
+  res.json(MOCK_REVIEWS);
+});
+
+app.get('/api/suki', (req, res) => {
+  res.json({
+    account: sukiStore,
+    pointHistory: pointHistoryStore
+  });
+});
+
+app.get('/api/bookings', (req, res) => {
+  res.json(bookingsStore);
+});
+
+app.post('/api/bookings', (req, res) => {
+  const bookingData = req.body;
+  const newBooking: Booking = {
+    id: `bk-${Date.now()}`,
+    bookingCode: `MTTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+    userId: sukiStore.userId,
+    ...bookingData,
+    status: 'confirmed',
+    createdAt: new Date().toISOString(),
+    qrCodeToken: `MTTH-QR-SECURE-${Date.now()}`
+  };
+
+  bookingsStore.unshift(newBooking);
+
+  const pointsEarned = Math.round(newBooking.totalPaid * 0.1);
+  sukiStore.points += pointsEarned;
+  sukiStore.completedTrips += 1;
+  pointHistoryStore.unshift({
+    id: `pt-${Date.now()}`,
+    date: new Date().toISOString().split('T')[0],
+    description: `Booking completed: ${newBooking.origin} to ${newBooking.destination}`,
+    pointsChange: pointsEarned,
+    type: 'earned'
+  });
+
+  notificationsStore.unshift({
+    id: `notif-${Date.now()}`,
+    title: 'Booking Confirmed!',
+    message: `Your trip from ${newBooking.origin} to ${newBooking.destination} is confirmed. Booking Code: ${newBooking.bookingCode}`,
+    type: 'booking',
+    timestamp: 'Just now',
+    read: false,
+    link: '/my-trips'
+  });
+
+  res.json(newBooking);
+});
+
+app.post('/api/bookings/:id/cancel', (req, res) => {
+  bookingsStore = bookingsStore.map(b => {
+    if (b.id === req.params.id) {
+      return {
+        ...b,
+        status: 'cancelled',
+        refundStatus: 'requested',
+        refundAmount: Math.round(b.totalPaid * 0.8)
+      };
+    }
+    return b;
+  });
+  res.json({ success: true, bookings: bookingsStore });
+});
+
+app.get('/api/support', (req, res) => {
+  res.json(supportTicketsStore);
+});
+
+app.post('/api/support', (req, res) => {
+  const ticket = req.body;
+  const newTicket = {
+    id: `sup-${Date.now()}`,
+    ticketNo: `MTTH-${Math.floor(1000 + Math.random() * 9000)}`,
+    ...ticket,
+    status: 'Open' as const,
+    createdAt: new Date().toISOString().split('T')[0],
+    updatedAt: new Date().toISOString().split('T')[0]
+  };
+  supportTicketsStore.unshift(newTicket);
+  res.json(newTicket);
+});
+
+app.get('/api/notifications', (req, res) => {
+  res.json(notificationsStore);
+});
+
+app.post('/api/notifications/read', (req, res) => {
+  notificationsStore = notificationsStore.map(n => ({ ...n, read: true }));
+  res.json({ success: true });
+});
+
+app.post('/api/ai/recommend', async (req, res) => {
+  const { prompt, destination, budget, style } = req.body;
+  
+  if (!ai) {
+    return res.json({ 
+      recommendation: `Here is a wonderful itinerary for ${destination || 'Mindanao'}! Enjoy exploring the stunning beaches, local culture, and delicious cuisine with a budget of ${budget || 'moderate'}. (AI API Key not configured, showing smart curation).` 
+    });
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: `You are an expert Mindanao travel concierge for Mindanao Travel Ticketing Hub (MTTH). Provide a warm, helpful, detailed travel recommendation and 3-day itinerary for destination "${destination || 'Camiguin'}", travel style "${style || 'Adventure & Leisure'}", and budget "${budget || 'Mid-range'}". ${prompt || ''}. IMPORTANT: Do NOT use any emojis in your response. Keep all formatting clean, professional, and readable without emojis.`,
+    });
+
+    res.json({ recommendation: response.text });
+  } catch (error) {
+    console.error('Gemini AI error:', error);
+    res.status(500).json({ error: 'Failed to generate AI recommendation' });
+  }
+});
+
+app.get('/api/admin/metrics', (req, res) => {
+  res.json({
+    totalBookings: bookingsStore.length,
+    totalRevenue: bookingsStore.reduce((sum, b) => sum + b.totalPaid, 0),
+    totalTravelers: 12450,
+    activeOperators: MOCK_OPERATORS.length,
+    destinationsCount: MOCK_DESTINATIONS.length,
+    sukiMembers: 8420
+  });
+});
+
+export default app;

@@ -4,7 +4,7 @@ import {
   MapPin, Calendar, Users, ArrowLeftRight, Search, ShieldCheck, QrCode, 
   Settings, LayoutDashboard, Route as RouteIcon, Gift, Heart, ArrowRight, 
   Check, X, Compass, Globe, Smartphone, HelpCircle, Layers, FileText,
-  ChevronDown, Zap, Star, AlertCircle, Clock, Lock
+  ChevronDown, Zap, Star, AlertCircle, Clock, Lock, Rocket, Terminal, ExternalLink, Copy
 } from 'lucide-react';
 import { 
   Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin, UserProfile, KycVerification 
@@ -19,6 +19,7 @@ import { BookingConfirmation } from './components/BookingConfirmation';
 import { DigitalTicketModal } from './components/DigitalTicketModal';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ProfileModal } from './components/ProfileModal';
+import { VercelDeployModal } from './components/VercelDeployModal';
 
 export default function App() {
   // Navigation & View mode: 'landing' | 'dashboard' | 'admin' | 'search-results' | 'checkout' | 'confirmation'
@@ -267,12 +268,83 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileModalInitialTab, setProfileModalInitialTab] = useState<'info' | 'kyc' | 'settings' | 'suki'>('info');
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
 
+  // User Profile & Mandatory KYC Verification State (with localStorage persistence)
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_user_profile');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_USER_PROFILE;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtth_user_profile', JSON.stringify(userProfile));
+    } catch {}
+  }, [userProfile]);
+
+  // Admin Customers KYC directory
+  const [customersKyc, setCustomersKyc] = useState<CustomerKycRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_customers_kyc');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return MOCK_CUSTOMERS_KYC;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtth_customers_kyc', JSON.stringify(customersKyc));
+    } catch {}
+  }, [customersKyc]);
+
+  const [customerFilter, setCustomerFilter] = useState<'all' | 'verified' | 'pending' | 'unverified'>('all');
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  const handleQuickVerifyKyc = () => {
+    const verifiedProfile: UserProfile = {
+      ...userProfile,
+      kyc: {
+        status: 'verified',
+        idType: userProfile.kyc.idType || 'philsys_national_id',
+        idNumber: userProfile.kyc.idNumber || '4829-1092-3849',
+        frontIdUrl: 'uploaded-front.png',
+        backIdUrl: 'uploaded-back.png',
+        selfieUrl: 'uploaded-selfie.png',
+        submittedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        verifiedAt: new Date().toISOString().slice(0, 10),
+        verificationCode: `KYC-PH-${Math.floor(1000 + Math.random() * 9000)}-VERIFIED`
+      }
+    };
+    setUserProfile(verifiedProfile);
+    setCustomersKyc(prev => prev.map(c => c.email === userProfile.email ? { ...c, kycStatus: 'verified' } : c));
+    showToast('Identity verified (KYC Approved)! You can now complete purchases.');
+  };
+
+  const handleUpdateProfile = (updated: UserProfile) => {
+    setUserProfile(updated);
+    setSukiAccount(prev => ({
+      ...prev,
+      name: updated.fullName,
+      email: updated.email
+    }));
+    setCustomersKyc(prev => prev.map(c => c.email === updated.email ? {
+      ...c,
+      name: updated.fullName,
+      phone: updated.phone,
+      kycStatus: updated.kyc.status as any,
+      idNumber: updated.kyc.idNumber || c.idNumber
+    } : c));
+  };
+
   // Admin Active Tab & Modals
-  const [adminTab, setAdminTab] = useState<'Dashboard' | 'Bookings' | 'Customers' | 'Operators' | 'Destinations' | 'Routes' | 'Promos' | 'SubAdmins' | 'Settings'>('Dashboard');
+  const [adminTab, setAdminTab] = useState<'Dashboard' | 'Bookings' | 'Customers' | 'Operators' | 'Destinations' | 'Routes' | 'Promos' | 'SubAdmins' | 'Settings' | 'Deployment'>('Dashboard');
+  const [vercelModalOpen, setVercelModalOpen] = useState(false);
   const [showAddRouteModal, setShowAddRouteModal] = useState(false);
   const [showAddSubAdminModal, setShowAddSubAdminModal] = useState(false);
   const [showAddPromoModal, setShowAddPromoModal] = useState(false);
@@ -552,8 +624,19 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="hidden sm:inline text-xs text-slate-300 font-medium">Logged in as Super Admin</span>
+            <div className="flex items-center gap-2.5">
+              <button 
+                className="bg-slate-900 hover:bg-black text-white font-extrabold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer shadow-xs transition-all hover:scale-105"
+                onClick={() => setVercelModalOpen(true)}
+                title="Open Vercel Deployment Assistant"
+              >
+                <svg className="w-3.5 h-3.5 fill-white" viewBox="0 0 1155 1000">
+                  <path d="m577.3 0 577.4 1000H0z" />
+                </svg>
+                <span className="hidden sm:inline">Deploy to Vercel</span>
+                <span className="sm:hidden">Deploy</span>
+              </button>
+              <span className="hidden lg:inline text-xs text-slate-300 font-medium">Super Admin</span>
               <button 
                 className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
                 onClick={() => {
@@ -586,10 +669,12 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               {[
                 { id: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" />, label: 'Dashboard' },
                 { id: 'Bookings', icon: <Ticket className="w-4 h-4" />, label: 'Bookings' },
+                { id: 'Customers', icon: <ShieldCheck className="w-4 h-4" />, label: 'Customers & KYC' },
                 { id: 'Routes', icon: <RouteIcon className="w-4 h-4" />, label: 'Routes & Trips' },
                 { id: 'Promos', icon: <Tag className="w-4 h-4" />, label: 'Promo Vouchers' },
                 { id: 'SubAdmins', icon: <Users className="w-4 h-4" />, label: 'Sub-Admins & Roles' },
-                { id: 'Settings', icon: <Settings className="w-4 h-4" />, label: 'Site Settings & Logo' }
+                { id: 'Settings', icon: <Settings className="w-4 h-4" />, label: 'Site Settings & Logo' },
+                { id: 'Deployment', icon: <Rocket className="w-4 h-4" />, label: 'Vercel Deployment' }
               ].map(item => (
                 <a 
                   key={item.id}
@@ -914,6 +999,104 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 </div>
               )}
 
+              {/* TAB: VERCEL DEPLOYMENT */}
+              {adminTab === 'Deployment' && (
+                <div className="admin-panel space-y-6 animate-fadeIn">
+                  <div className="panel-head border-b pb-3">
+                    <div>
+                      <h2>Vercel Production Deployment & Hosting</h2>
+                      <p className="text-xs text-slate-500">Zero-config global hosting on Vercel's Edge network for Mindanao Ticket Hub.</p>
+                    </div>
+                    <button 
+                      className="bg-slate-900 hover:bg-black text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                      onClick={() => setVercelModalOpen(true)}
+                    >
+                      <svg className="w-3.5 h-3.5 fill-white" viewBox="0 0 1155 1000">
+                        <path d="m577.3 0 577.4 1000H0z" />
+                      </svg>
+                      <span>Open Deploy Assistant</span>
+                    </button>
+                  </div>
+
+                  {/* Deployment Status Card */}
+                  <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-teal-950 text-white p-6 sm:p-7 rounded-2xl shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Configuration Ready</span>
+                      </div>
+                      <h3 className="text-xl font-black">Ready to Deploy on Vercel</h3>
+                      <p className="text-xs text-slate-300 max-w-lg leading-relaxed">
+                        The codebase includes root <code className="text-teal-300 font-mono font-bold">vercel.json</code>, serverless <code className="text-teal-300 font-mono font-bold">api/index.ts</code> handler, and SPA rewrite rules.
+                      </p>
+                    </div>
+
+                    <a 
+                      href="https://vercel.com/new"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-white hover:bg-slate-100 text-slate-950 font-black px-6 py-3.5 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-2xl transition-all hover:scale-105 active:scale-95 shrink-0"
+                    >
+                      <svg className="w-4 h-4 fill-black" viewBox="0 0 1155 1000">
+                        <path d="m577.3 0 577.4 1000H0z" />
+                      </svg>
+                      <span>Deploy to Vercel</span>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                    </a>
+                  </div>
+
+                  {/* Build Specs & CLI */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-teal-600" />
+                        <span>Project Preset Settings</span>
+                      </h4>
+                      <div className="space-y-2 text-xs font-mono">
+                        <div className="flex justify-between p-2 rounded-lg bg-white border border-slate-200">
+                          <span className="text-slate-500">Framework Preset:</span>
+                          <span className="font-bold text-slate-800">Vite</span>
+                        </div>
+                        <div className="flex justify-between p-2 rounded-lg bg-white border border-slate-200">
+                          <span className="text-slate-500">Build Command:</span>
+                          <span className="font-bold text-slate-800">vite build</span>
+                        </div>
+                        <div className="flex justify-between p-2 rounded-lg bg-white border border-slate-200">
+                          <span className="text-slate-500">Output Directory:</span>
+                          <span className="font-bold text-slate-800">dist</span>
+                        </div>
+                        <div className="flex justify-between p-2 rounded-lg bg-white border border-slate-200">
+                          <span className="text-slate-500">API Runtime:</span>
+                          <span className="font-bold text-emerald-600">Node.js Serverless (api/index.ts)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Terminal className="w-4 h-4 text-slate-700" />
+                        <span>Instant Vercel CLI Deploy</span>
+                      </h4>
+                      <div className="bg-slate-950 text-slate-200 rounded-xl p-3.5 font-mono text-xs space-y-1">
+                        <p className="text-slate-400"># Deploy in seconds</p>
+                        <p className="text-emerald-400">npm i -g vercel</p>
+                        <p className="text-emerald-400">vercel --prod</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('npm i -g vercel && vercel --prod');
+                          showToast('Copied Vercel CLI command to clipboard!');
+                        }}
+                        className="w-full bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy CLI Command</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* TAB: SUB-ADMINS & ROLES */}
               {adminTab === 'SubAdmins' && (
                 <div className="admin-panel space-y-4">
@@ -1141,9 +1324,20 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               <a onClick={() => setActiveView('landing')} style={{ cursor: 'pointer' }}>Home</a>
               <a className="active" style={{ cursor: 'pointer' }}>My Trips</a>
             </nav>
-            <a className="user flex items-center gap-1.5" onClick={() => setProfileModalOpen(true)} style={{ cursor: 'pointer' }}>
+            <a className="user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} style={{ cursor: 'pointer' }}>
               <User className="w-3.5 h-3.5" />
-              <span>Maria</span>
+              <span>{userProfile.firstName || 'Maria'}</span>
+              {userProfile.kyc.status === 'verified' ? (
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
+                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                  KYC
+                </span>
+              ) : (
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
+                  <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
+                  KYC
+                </span>
+              )}
             </a>
           </header>
 
@@ -1157,12 +1351,23 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 <span className="text-label">{userDashSidebarMinimized ? 'Expand Menu' : 'Minimize Menu'}</span>
               </button>
 
-              <div className="dash-user">
+              <div className="dash-user cursor-pointer" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Click to view & edit Profile & KYC">
                 <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold mx-auto mb-1">
-                  MS
+                  {userProfile.firstName?.[0] || 'M'}{userProfile.lastName?.[0] || 'S'}
                 </div>
-                <b>Maria Santos</b>
-                <small>Gold Suki Member</small>
+                <b>{userProfile.fullName || 'Maria Santos'}</b>
+                <small className="flex items-center justify-center gap-1">
+                  {userProfile.kyc.status === 'verified' ? (
+                    <span className="text-emerald-600 font-bold flex items-center gap-0.5">
+                      <ShieldCheck className="w-3 h-3" /> KYC Verified
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                      <AlertCircle className="w-3 h-3" /> KYC Required
+                    </span>
+                  )}
+                  • Gold Suki
+                </small>
               </div>
               <a className="selected flex items-center gap-2">
                 <LayoutDashboard className="w-4 h-4" />
@@ -1371,9 +1576,20 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               <button className="icon-btn" aria-label="Notifications" onClick={() => setNotifModalOpen(true)}>
                 <Bell className="w-4 h-4 text-slate-200" />
               </button>
-              <button className="profile user flex items-center gap-1" onClick={() => setActiveView('dashboard')}>
-                <span className="avatar">M</span>
-                <span>{sukiAccount.name.split(' ')[0]}</span>
+              <button className="profile user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Profile Settings & KYC Verification">
+                <span className="avatar">{userProfile.firstName?.[0] || 'M'}</span>
+                <span>{userProfile.firstName || sukiAccount.name.split(' ')[0]}</span>
+                {userProfile.kyc.status === 'verified' ? (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
+                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                    KYC
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
+                    <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
+                    KYC
+                  </span>
+                )}
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
             </div>
@@ -1881,6 +2097,12 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               passengersCount={passengers}
               sukiAccount={sukiAccount}
               vouchers={vouchers}
+              userProfile={userProfile}
+              onOpenKyc={() => {
+                setProfileModalInitialTab('kyc');
+                setProfileModalOpen(true);
+              }}
+              onQuickVerifyKyc={handleQuickVerifyKyc}
               onCompleteBooking={handleCompleteBooking}
               onCancel={() => setActiveView('search-results')}
             />
@@ -1913,8 +2135,21 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 <button onClick={() => showToast('Travel Policies: 24h flexible cancellations on select routes')}>Travel Policies</button>
                 <button onClick={() => showToast('Terms: Official Philippine domestic ticketing conditions apply')}>Terms & Conditions</button>
                 <button onClick={() => showToast('Privacy: User data encrypted with standard Philippine privacy compliance')}>Privacy Policy</button>
+                <button onClick={() => setVercelModalOpen(true)} className="text-teal-400 font-bold flex items-center gap-1">
+                  <Rocket className="w-3.5 h-3.5" />
+                  <span>Deploy to Vercel</span>
+                </button>
               </div>
-              <div className="stores">
+              <div className="stores flex items-center gap-2">
+                <button
+                  onClick={() => setVercelModalOpen(true)}
+                  className="bg-black text-white border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold hover:bg-slate-900 transition-colors"
+                >
+                  <svg className="w-3 h-3 fill-white" viewBox="0 0 1155 1000">
+                    <path d="m577.3 0 577.4 1000H0z" />
+                  </svg>
+                  <span>Deploy to Vercel</span>
+                </button>
                 <button onClick={() => showToast('Google Play Android app coming soon!')}>Google Play</button>
                 <button onClick={() => showToast('iOS App Store app coming soon!')}>App Store</button>
               </div>
@@ -2382,8 +2617,12 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
       {/* Profile Modal */}
       {profileModalOpen && (
         <ProfileModal 
+          userProfile={userProfile}
           sukiAccount={sukiAccount} 
+          initialTab={profileModalInitialTab}
           onClose={() => setProfileModalOpen(false)} 
+          onUpdateProfile={handleUpdateProfile}
+          onQuickVerifyKyc={handleQuickVerifyKyc}
         />
       )}
 
@@ -2396,6 +2635,14 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
           ]}
           onClose={() => setNotifModalOpen(false)}
           onMarkAllRead={() => showToast('All notifications marked as read')}
+        />
+      )}
+
+      {/* Vercel Deploy Modal */}
+      {vercelModalOpen && (
+        <VercelDeployModal
+          onClose={() => setVercelModalOpen(false)}
+          onToast={showToast}
         />
       )}
 
