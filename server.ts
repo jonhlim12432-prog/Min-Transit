@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
@@ -15,7 +16,8 @@ import {
   INITIAL_SUKI_ACCOUNT, 
   MOCK_POINT_HISTORY, 
   MOCK_SUPPORT_TICKETS, 
-  MOCK_NOTIFICATIONS 
+  MOCK_NOTIFICATIONS,
+  MOCK_CUSTOMERS_KYC 
 } from './src/mockData';
 import { Booking } from './src/types';
 
@@ -25,10 +27,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// In-memory data store for stateful demo changes (bookings, vouchers, suki points, support tickets)
-let bookingsStore: Booking[] = [
+// Persistent DB File for Cross-Device / Cross-User Vercel Synchronization
+const DB_FILE = path.join(__dirname, 'server-db.json');
+let dbState: any = {};
+try {
+  if (fs.existsSync(DB_FILE)) {
+    dbState = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+  }
+} catch {}
+
+let schedulesStore = dbState.schedules || [...MOCK_SCHEDULES];
+let vouchersStore = dbState.vouchers || [...MOCK_VOUCHERS];
+let bookingsStore = dbState.bookings || [
   {
     id: 'bk-101',
     bookingCode: 'MTTH-CAM-8821',
@@ -60,12 +73,69 @@ let bookingsStore: Booking[] = [
     qrCodeToken: 'MTTH-QR-SECURE-CAM-9921'
   }
 ];
-
-let vouchersStore = [...MOCK_VOUCHERS];
-let sukiStore = { ...INITIAL_SUKI_ACCOUNT };
+let customersKycStore = dbState.customersKyc || [...MOCK_CUSTOMERS_KYC];
+let subAdminsStore = dbState.subAdmins || [
+  {
+    id: 'sub-1',
+    name: 'Carlos Mendoza',
+    email: 'carlos.ops@mtth.ph',
+    role: 'Operations Admin',
+    status: 'Active',
+    permissions: ['Manage Bookings', 'Manage Operators', 'Issue Refunds'],
+    createdAt: '2026-08-12',
+    lastActive: '10 mins ago'
+  },
+  {
+    id: 'sub-2',
+    name: 'Eileen Dalisay',
+    email: 'eileen.ticketing@mtth.ph',
+    role: 'Ticketing Agent',
+    status: 'Active',
+    permissions: ['Manage Bookings', 'Issue Tickets'],
+    createdAt: '2026-09-01',
+    lastActive: '1 hour ago'
+  },
+  {
+    id: 'sub-3',
+    name: 'Ramon Bautista',
+    email: 'ramon.support@mtth.ph',
+    role: 'Support Agent',
+    status: 'Active',
+    permissions: ['Manage Support', 'Review Inquiries'],
+    createdAt: '2026-09-15',
+    lastActive: 'Yesterday'
+  }
+];
+let siteSettingsStore = dbState.siteSettings || {
+  siteName: 'MTTH',
+  siteSubtitle: 'Mindanao',
+  tagline: 'Your Journey Starts Here',
+  logoUrl: '',
+  contactEmail: 'support@mtth.ph',
+  contactPhone: '+63 88 123 4567',
+  announcementText: 'Mindanao Travel Week — Earn 2X Suki Points on selected routes',
+  announcementActive: true,
+  allowNewRegistrations: true,
+  currency: 'PHP (₱)'
+};
+let sukiStore = dbState.sukiAccount || { ...INITIAL_SUKI_ACCOUNT };
 let pointHistoryStore = [...MOCK_POINT_HISTORY];
 let supportTicketsStore = [...MOCK_SUPPORT_TICKETS];
 let notificationsStore = [...MOCK_NOTIFICATIONS];
+
+const saveDb = () => {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify({
+      schedules: schedulesStore,
+      vouchers: vouchersStore,
+      bookings: bookingsStore,
+      customersKyc: customersKycStore,
+      subAdmins: subAdminsStore,
+      siteSettings: siteSettingsStore,
+      sukiAccount: sukiStore
+    }, null, 2));
+  } catch {}
+};
 
 // Gemini AI setup
 const apiKey = process.env.GEMINI_API_KEY;
@@ -124,7 +194,7 @@ app.get('/api/vouchers', (req, res) => {
 
 app.post('/api/vouchers/claim', (req, res) => {
   const { voucherId } = req.body;
-  vouchersStore = vouchersStore.map(v => v.id === voucherId ? { ...v, claimed: true } : v);
+  vouchersStore = vouchersStore.map((v: any) => v.id === voucherId ? { ...v, claimed: true } : v);
   res.json({ success: true, vouchers: vouchersStore });
 });
 
@@ -201,7 +271,7 @@ app.post('/api/bookings', (req, res) => {
 
 app.post('/api/bookings/:id/cancel', (req, res) => {
   const { id } = req.body;
-  bookingsStore = bookingsStore.map(b => {
+  bookingsStore = bookingsStore.map((b: any) => {
     if (b.id === req.params.id) {
       return {
         ...b,
@@ -265,11 +335,37 @@ app.post('/api/ai/recommend', async (req, res) => {
   }
 });
 
+// Admin & Cross-Device State Sync API
+app.get('/api/admin/state', (req, res) => {
+  res.json({
+    schedules: schedulesStore,
+    vouchers: vouchersStore,
+    bookings: bookingsStore,
+    customersKyc: customersKycStore,
+    subAdmins: subAdminsStore,
+    siteSettings: siteSettingsStore,
+    sukiAccount: sukiStore
+  });
+});
+
+app.post('/api/admin/state', (req, res) => {
+  const { schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount } = req.body;
+  if (schedules) schedulesStore = schedules;
+  if (vouchers) vouchersStore = vouchers;
+  if (bookings) bookingsStore = bookings;
+  if (customersKyc) customersKycStore = customersKyc;
+  if (subAdmins) subAdminsStore = subAdmins;
+  if (siteSettings) siteSettingsStore = siteSettings;
+  if (sukiAccount) sukiStore = sukiAccount;
+  saveDb();
+  res.json({ success: true });
+});
+
 // Admin metrics & CMS
 app.get('/api/admin/metrics', (req, res) => {
   res.json({
     totalBookings: bookingsStore.length,
-    totalRevenue: bookingsStore.reduce((sum, b) => sum + b.totalPaid, 0),
+    totalRevenue: bookingsStore.reduce((sum: number, b: any) => sum + b.totalPaid, 0),
     totalTravelers: 12450,
     activeOperators: MOCK_OPERATORS.length,
     destinationsCount: MOCK_DESTINATIONS.length,

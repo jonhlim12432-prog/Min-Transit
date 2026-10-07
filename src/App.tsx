@@ -358,6 +358,21 @@ export default function App() {
     try { localStorage.setItem('mtth_subadmins', JSON.stringify(subAdmins)); } catch {}
   }, [subAdmins]);
 
+  // Admin Customers KYC directory
+  const [customersKyc, setCustomersKyc] = useState<CustomerKycRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_customers_kyc');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return MOCK_CUSTOMERS_KYC;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtth_customers_kyc', JSON.stringify(customersKyc));
+    } catch {}
+  }, [customersKyc]);
+
   // Booking & Selection
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
@@ -391,20 +406,38 @@ export default function App() {
     } catch {}
   }, [userProfile]);
 
-  // Admin Customers KYC directory
-  const [customersKyc, setCustomersKyc] = useState<CustomerKycRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('mtth_customers_kyc');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return MOCK_CUSTOMERS_KYC;
-  });
+  // Server Synchronization for Cross-Device / Cross-User Vercel Persistence
+  useEffect(() => {
+    fetch('/api/admin/state')
+      .then(res => res.json())
+      .then(data => {
+        if (data.schedules) setSchedules(data.schedules);
+        if (data.vouchers) setVouchers(data.vouchers);
+        if (data.bookings) setBookings(data.bookings);
+        if (data.customersKyc) setCustomersKyc(data.customersKyc);
+        if (data.subAdmins) setSubAdmins(data.subAdmins);
+        if (data.siteSettings) setSiteSettings(data.siteSettings);
+        if (data.sukiAccount) setSukiAccount(data.sukiAccount);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('mtth_customers_kyc', JSON.stringify(customersKyc));
-    } catch {}
-  }, [customersKyc]);
+    const payload = {
+      schedules,
+      vouchers,
+      bookings,
+      customersKyc,
+      subAdmins,
+      siteSettings,
+      sukiAccount
+    };
+    fetch('/api/admin/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(() => {});
+  }, [schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount]);
 
   const [customerFilter, setCustomerFilter] = useState<'all' | 'verified' | 'pending' | 'unverified' | 'rejected'>('all');
   const [customerSearch, setCustomerSearch] = useState('');
