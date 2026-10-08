@@ -23,6 +23,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 }) => {
   const [sortBy, setSortBy] = useState<'recommended' | 'cheapest' | 'fastest'>('recommended');
   const [selectedTransportFilter, setSelectedTransportFilter] = useState<string>('all');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   // Filter & Sort
   let filtered = schedules;
@@ -37,41 +38,72 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-10 pb-24 md:pb-10">
       
       {/* Route Header Banner */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 mb-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-8 mb-5 sm:mb-8 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
         <div>
           <div className="flex items-center space-x-2 text-teal-400 text-xs font-bold uppercase tracking-wider mb-1">
             <span>Mindanao Route Search Result</span>
             <span>•</span>
             <span>{searchParams.date}</span>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold flex items-center space-x-3">
+          <h2 className="text-xl sm:text-3xl font-extrabold flex items-center space-x-2 sm:space-x-3">
             <span>{searchParams.origin}</span>
-            <ArrowRight className="w-6 h-6 text-teal-400" />
+            <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-teal-400 shrink-0" />
             <span>{searchParams.destination}</span>
           </h2>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-400 text-xs sm:text-sm mt-1">
             {filtered.length} available transport options for {searchParams.passengers} traveler(s)
           </p>
         </div>
 
-        <button
-          onClick={onBackToSearch}
-          className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-5 py-3 rounded-xl border border-slate-700 text-sm transition-colors"
-        >
-          Modify Search
-        </button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className="lg:hidden flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2.5 rounded-xl border border-slate-700 text-xs transition-colors"
+          >
+            <Filter className="w-3.5 h-3.5 text-teal-400" />
+            <span>{mobileFiltersOpen ? 'Hide Filters' : 'Filters'}</span>
+          </button>
+          <button
+            onClick={onBackToSearch}
+            className="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm transition-colors text-center"
+          >
+            Modify Search
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Quick Transport Pills on Mobile */}
+      <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-3 mb-4 scrollbar-none">
+        {[
+          { id: 'all', label: 'All Modes' },
+          { id: 'ferry', label: 'Ferries & RoRo' },
+          { id: 'bus', label: 'Buses' },
+          { id: 'flight', label: 'Flights' }
+        ].map((type) => (
+          <button
+            key={type.id}
+            onClick={() => setSelectedTransportFilter(type.id)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+              selectedTransportFilter === type.id 
+                ? 'bg-teal-600 text-white shadow-sm' 
+                : 'bg-white text-slate-700 border border-slate-200'
+            }`}
+          >
+            {type.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
         
-        {/* Filters Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-3xl shadow-md border border-slate-200/80 space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h3 className="font-extrabold text-slate-900 flex items-center space-x-2">
+        {/* Filters Sidebar (Collapsible on Mobile) */}
+        <div className={`lg:col-span-1 space-y-6 ${mobileFiltersOpen ? 'block' : 'hidden lg:block'}`}>
+          <div className="bg-white p-5 sm:p-6 rounded-3xl shadow-md border border-slate-200/80 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-extrabold text-slate-900 flex items-center space-x-2 text-sm sm:text-base">
                 <Filter className="w-4 h-4 text-teal-600" />
                 <span>Filters</span>
               </h3>
@@ -178,16 +210,16 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
               return (
                 <div 
                   key={sch.id}
-                  className="bg-white rounded-3xl p-6 shadow-md border border-slate-200/80 hover:border-teal-500 transition-all space-y-6"
+                  className="bg-white rounded-3xl p-4 sm:p-6 shadow-md border border-slate-200/80 hover:border-teal-500 transition-all space-y-4 sm:space-y-6"
                 >
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 pb-3 sm:pb-4 border-b border-slate-100">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-2xl shadow-sm">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-xl sm:text-2xl shadow-sm shrink-0">
                         {sch.operatorLogo}
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h4 className="font-extrabold text-slate-900 text-base">{sch.operatorName}</h4>
+                          <h4 className="font-extrabold text-slate-900 text-sm sm:text-base">{sch.operatorName}</h4>
                           <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1 border border-emerald-200">
                             <ShieldCheck className="w-3 h-3" />
                             <span>Verified</span>
@@ -197,36 +229,37 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-xs text-slate-400 font-semibold uppercase">Total for {searchParams.passengers} Pax</div>
-                      <div className="text-2xl font-extrabold text-slate-900">₱{totalFare.toLocaleString()}</div>
+                    <div className="flex items-center justify-between w-full sm:w-auto sm:text-right pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                      <div className="text-xs text-slate-400 font-semibold uppercase sm:hidden">Total for {searchParams.passengers} Pax</div>
+                      <div className="hidden sm:block text-xs text-slate-400 font-semibold uppercase">Total for {searchParams.passengers} Pax</div>
+                      <div className="text-xl sm:text-2xl font-extrabold text-teal-700 sm:text-slate-900">₱{totalFare.toLocaleString()}</div>
                     </div>
                   </div>
 
                   {/* Journey Times */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center bg-slate-50 p-4 rounded-2xl">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-4 items-center bg-slate-50 p-3 sm:p-4 rounded-2xl">
                     <div>
-                      <div className="text-xs text-slate-500 font-bold uppercase">Departure</div>
-                      <div className="text-lg font-extrabold text-slate-900">
+                      <div className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase">Departure</div>
+                      <div className="text-base sm:text-lg font-extrabold text-slate-900">
                         {new Date(sch.departureTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div className="text-xs text-slate-600">{sch.originTerminal}</div>
+                      <div className="text-[11px] sm:text-xs text-slate-600 truncate">{sch.originTerminal}</div>
                     </div>
 
                     <div className="text-center flex flex-col items-center">
-                      <span className="text-xs font-bold text-teal-600 bg-teal-50 px-3 py-1 rounded-full border border-teal-200">
+                      <span className="text-[10px] sm:text-xs font-bold text-teal-600 bg-teal-50 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-teal-200">
                         {sch.duration}
                       </span>
-                      <div className="w-full border-t border-dashed border-slate-300 my-2" />
-                      <span className="text-[10px] text-slate-400 font-semibold">Direct Route</span>
+                      <div className="w-full border-t border-dashed border-slate-300 my-1 sm:my-2" />
+                      <span className="text-[9px] sm:text-[10px] text-slate-400 font-semibold">Direct Route</span>
                     </div>
 
-                    <div className="text-right sm:text-left">
-                      <div className="text-xs text-slate-500 font-bold uppercase">Arrival</div>
-                      <div className="text-lg font-extrabold text-slate-900">
+                    <div className="text-right">
+                      <div className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase">Arrival</div>
+                      <div className="text-base sm:text-lg font-extrabold text-slate-900">
                         {new Date(sch.arrivalTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div className="text-xs text-slate-600">{sch.destinationTerminal}</div>
+                      <div className="text-[11px] sm:text-xs text-slate-600 truncate">{sch.destinationTerminal}</div>
                     </div>
                   </div>
 

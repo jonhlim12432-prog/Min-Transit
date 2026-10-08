@@ -5,7 +5,7 @@ import {
   Settings, LayoutDashboard, Route as RouteIcon, Gift, Heart, ArrowRight, 
   Check, X, Compass, Globe, Smartphone, HelpCircle, Layers, FileText,
   ChevronDown, Zap, Star, AlertCircle, Clock, Lock, Rocket, Terminal, ExternalLink, Copy,
-  Edit3, Trash2, Eye, Plus, Filter, RefreshCw, CheckCircle2
+  Edit3, Trash2, Eye, Plus, Filter, RefreshCw, CheckCircle2, Menu
 } from 'lucide-react';
 import { 
   Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin, UserProfile, KycVerification,
@@ -1185,9 +1185,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
           FLOATING AI CONCIERGE BUTTON (FAB)
       ======================================================== */}
       {activeView !== 'admin' && !isAnyModalOpen && (
-        <aside aria-label="Floating AI Concierge Launcher" className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2">
+        <aside aria-label="Floating AI Concierge Launcher" className="fixed bottom-20 right-3 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2">
           <button 
-            className="group relative flex items-center gap-2.5 bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-700 hover:from-teal-500 hover:to-emerald-600 text-white font-extrabold px-4 sm:px-5 py-3 sm:py-3.5 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all border border-teal-300/30 cursor-pointer"
+            className="group relative flex items-center gap-2 bg-gradient-to-r from-teal-600 via-teal-700 to-emerald-700 hover:from-teal-500 hover:to-emerald-600 text-white font-extrabold px-3.5 sm:px-5 py-2.5 sm:py-3.5 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all border border-teal-300/30 cursor-pointer"
             onClick={() => setAiModalOpen(true)}
             aria-label="Open AI Travel Concierge"
             style={{ boxShadow: '0 10px 30px rgba(11, 186, 180, 0.45)' }}
@@ -2384,67 +2384,69 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
         /* ========================================================
             VIEW: CUSTOMER DASHBOARD / MY TRIPS (dashboard.html)
         ======================================================== */
-        <div className="dashboard min-h-screen">
+        <div className="dashboard min-h-screen pb-20 md:pb-6">
           <header className="topbar">
-            <a className="brand" onClick={() => setActiveView('landing')}>
-              {renderBrandMark("h-8 sm:h-9")}
-              <span>
-                <b>{siteSettings.siteName} <i>{siteSettings.siteSubtitle}</i></b>
-                <small>{siteSettings.tagline}</small>
+            <a className="brand flex items-center gap-2 sm:gap-2.5 min-w-0" onClick={() => setActiveView('landing')}>
+              {renderBrandMark("h-8 sm:h-9 shrink-0")}
+              <span className="min-w-0">
+                <b className="truncate block max-w-[130px] xs:max-w-[170px] sm:max-w-none text-sm sm:text-base font-extrabold">{siteSettings.siteName} <i className="hidden sm:inline font-semibold">{siteSettings.siteSubtitle}</i></b>
+                <small className="hidden md:block truncate">{siteSettings.tagline}</small>
               </span>
             </a>
-            <nav style={{ display: 'flex' }}>
+            <nav className="hidden sm:flex items-center gap-2">
               <a onClick={() => setActiveView('landing')} style={{ cursor: 'pointer' }}>Home</a>
               <a className="active" style={{ cursor: 'pointer' }}>My Trips</a>
             </nav>
 
             {currentUser ? (
-              <div className="flex items-center gap-2 ml-auto">
-                <a className="user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} style={{ cursor: 'pointer' }}>
+              <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+                <a className="user flex items-center gap-1 sm:gap-1.5 max-w-[120px] sm:max-w-none" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} style={{ cursor: 'pointer' }}>
                   {currentUser.userProfile?.avatarUrl ? (
                     <img 
                       src={currentUser.userProfile.avatarUrl} 
                       alt="" 
-                      className="w-5 h-5 rounded-full object-cover border border-teal-400" 
+                      className="w-5 h-5 rounded-full object-cover border border-teal-400 shrink-0" 
                     />
                   ) : (
-                    <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center font-bold">
+                    <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center font-bold shrink-0">
                       {currentUser.firstName?.[0] || currentUser.fullName?.[0] || 'U'}
                     </span>
                   )}
-                  <span>{currentUser.firstName || currentUser.fullName}</span>
+                  <span className="truncate max-w-[65px] sm:max-w-[100px] text-xs font-bold">{currentUser.firstName || currentUser.fullName}</span>
                   {currentUser.userProfile?.kyc?.status === 'verified' ? (
-                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
+                    <span className="hidden sm:inline-flex text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 items-center gap-0.5" title="KYC Verified">
                       <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
                       KYC
                     </span>
-                  ) : (
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
-                      <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
-                      KYC
-                    </span>
-                  )}
+                  ) : null}
                 </a>
                 <button
                   onClick={handleUserLogout}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 border border-slate-700 text-xs font-bold cursor-pointer transition-colors"
+                  className="hidden sm:inline-block px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 border border-slate-700 text-xs font-bold cursor-pointer transition-colors"
                 >
                   Log Out
                 </button>
+                <button
+                  onClick={() => setActiveView('landing')}
+                  className="sm:hidden px-2 py-1 rounded-lg bg-teal-700/80 text-white text-xs font-bold"
+                  title="Return to Home"
+                >
+                  Home
+                </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
                 <button
                   onClick={() => handleOpenAuthModal('login')}
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer"
+                  className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer"
                 >
                   Sign In
                 </button>
                 <button
                   onClick={() => handleOpenAuthModal('register')}
-                  className="px-3.5 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md"
+                  className="hidden xs:inline-block px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md"
                 >
-                  Create Account
+                  Register
                 </button>
               </div>
             )}
@@ -2653,11 +2655,13 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 
           {/* Top Header */}
           <header className="topbar">
-            <a className="brand" onClick={() => setActiveView('landing')}>
-              {renderBrandMark("h-8 sm:h-9 md:h-10")}
-              <span>
-                <strong>{siteSettings.siteName} <em>{siteSettings.siteSubtitle}</em></strong>
-                <small>{siteSettings.tagline}</small>
+            <a className="brand flex items-center gap-2 sm:gap-2.5 min-w-0" onClick={() => setActiveView('landing')}>
+              {renderBrandMark("h-8 sm:h-9 md:h-10 shrink-0")}
+              <span className="min-w-0">
+                <strong className="text-sm sm:text-base md:text-lg font-extrabold truncate block max-w-[130px] xs:max-w-[180px] sm:max-w-none">
+                  {siteSettings.siteName} <em className="hidden sm:inline font-semibold">{siteSettings.siteSubtitle}</em>
+                </strong>
+                <small className="hidden md:block truncate">{siteSettings.tagline}</small>
               </span>
             </a>
 
@@ -2722,64 +2726,59 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
             </nav>
 
             {/* Right side actions (Sign In / Create Account / Profile / Mobile Menu) */}
-            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 ml-auto shrink-0">
               {currentUser ? (
-                <div className="top-actions flex items-center gap-2 sm:gap-2.5">
-                  <button className="points flex items-center" onClick={() => setActiveView('dashboard')}>
+                <div className="top-actions flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <button className="points hidden lg:flex items-center" onClick={() => setActiveView('dashboard')}>
                     <Award className="w-3.5 h-3.5 text-amber-400 mr-1" />
                     <div>
                       <b>{(currentUser.sukiAccount?.tier || 'STARTER').toUpperCase()} SUKI</b>
                       <strong id="pointsValue">{(currentUser.sukiAccount?.points ?? sukiAccount.points).toLocaleString()}</strong> pts
                     </div>
                   </button>
-                  <button className="icon-btn" aria-label="Notifications" onClick={() => setNotifModalOpen(true)}>
+                  <button className="icon-btn hidden sm:grid" aria-label="Notifications" onClick={() => setNotifModalOpen(true)}>
                     <Bell className="w-4 h-4 text-slate-200" />
                   </button>
                   <button 
-                    className="profile user flex items-center gap-1.5 cursor-pointer" 
+                    className="profile user flex items-center gap-1 sm:gap-1.5 cursor-pointer max-w-[120px] sm:max-w-none" 
                     onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} 
                     title="Profile Settings & KYC Verification"
                   >
-                    <span className="avatar overflow-hidden flex items-center justify-center border border-teal-300">
+                    <span className="avatar overflow-hidden flex items-center justify-center border border-teal-300 shrink-0">
                       {currentUser.userProfile?.avatarUrl ? (
                         <img src={currentUser.userProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
                         currentUser.firstName?.[0] || currentUser.fullName?.[0] || 'U'
                       )}
                     </span>
-                    <span className="font-bold text-xs text-white max-w-[100px] truncate">{currentUser.firstName || currentUser.fullName}</span>
+                    <span className="font-bold text-xs text-white max-w-[65px] sm:max-w-[100px] truncate">{currentUser.firstName || currentUser.fullName}</span>
                     {currentUser.userProfile?.kyc?.status === 'verified' ? (
-                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
+                      <span className="hidden sm:inline-flex text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 items-center gap-0.5" title="KYC Verified">
                         <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
                         KYC
                       </span>
-                    ) : (
-                      <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
-                        <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
-                        KYC
-                      </span>
-                    )}
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    ) : null}
+                    <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
                   </button>
                   <button
                     onClick={handleUserLogout}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 border border-slate-700 text-xs font-bold cursor-pointer transition-colors"
+                    className="hidden sm:inline-block px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 border border-slate-700 text-xs font-bold cursor-pointer transition-colors"
                     title="Sign out from account"
                   >
                     Log Out
                   </button>
                 </div>
               ) : (
-                <div className="top-actions flex items-center gap-2">
+                <div className="top-actions flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <button 
                     onClick={() => handleOpenAuthModal('login')}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition-all whitespace-nowrap"
+                    className="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition-all whitespace-nowrap active:scale-95"
                   >
                     Sign In
                   </button>
                   <button 
                     onClick={() => handleOpenAuthModal('register')}
-                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-extrabold text-xs shadow-md cursor-pointer transition-all hover:scale-105 whitespace-nowrap"
+                    className="hidden xs:inline-block px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-extrabold text-xs shadow-md cursor-pointer transition-all hover:scale-105 whitespace-nowrap active:scale-95"
                   >
                     Create Account
                   </button>
@@ -2787,11 +2786,11 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               )}
 
               <button 
-                className="mobile-menu hamb ml-1" 
-                aria-label="Open menu"
+                className="mobile-menu hamb p-2 sm:p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-white flex items-center justify-center cursor-pointer transition-colors shrink-0" 
+                aria-label="Toggle mobile menu"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               >
-                <Compass className="w-5 h-5 text-white" />
+                {mobileMenuOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
               </button>
             </div>
           </header>
@@ -2963,7 +2962,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 
           {/* Main Views for Marketplace */}
           {activeView === 'landing' && (
-            <main>
+            <main className="pb-20 md:pb-0">
               {/* Hero Section */}
               <section className="hero">
                 <div className="hero-overlay"></div>
@@ -3462,7 +3461,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
           )}
 
           {/* Footer */}
-          <footer id="footer">
+          <footer id="footer" className="pb-20 md:pb-6">
             <div className="footer-main">
               <div className="footer-brand">
                 {renderBrandMark("h-7 sm:h-8")}
@@ -4137,6 +4136,78 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
           onClose={() => setVercelModalOpen(false)}
           onToast={showToast}
         />
+      )}
+
+      {/* Mobile Bottom Navigation Bar */}
+      {activeView !== 'admin' && !isAnyModalOpen && (
+        <nav 
+          aria-label="Mobile Navigation Bar" 
+          className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-slate-900/95 backdrop-blur-md border-t border-slate-800/80 px-1.5 py-1 flex justify-around items-center shadow-2xl"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)' }}
+        >
+          <button
+            onClick={() => { setActiveView('landing'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-colors cursor-pointer ${
+              activeView === 'landing' ? 'text-teal-400 font-extrabold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Compass className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight font-bold">Home</span>
+          </button>
+
+          <button
+            onClick={() => { 
+              if (activeView !== 'landing') setActiveView('landing');
+              setTimeout(() => {
+                const el = document.getElementById('transport');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-colors text-slate-400 hover:text-slate-200 cursor-pointer"
+          >
+            <Plane className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight font-bold">Book</span>
+          </button>
+
+          <button
+            onClick={() => { 
+              if (!currentUser) {
+                handleOpenAuthModal('login', 'Sign in to access your booked trips and tickets.');
+              } else {
+                setActiveView('dashboard');
+              }
+            }}
+            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-colors cursor-pointer ${
+              activeView === 'dashboard' ? 'text-teal-400 font-extrabold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Ticket className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight font-bold">My Trips</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (!currentUser) {
+                handleOpenAuthModal('login', 'Sign in to view your Suki Rewards wallet and points.');
+              } else {
+                setProfileModalInitialTab('suki');
+                setProfileModalOpen(true);
+              }
+            }}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-colors text-slate-400 hover:text-slate-200 cursor-pointer"
+          >
+            <Award className="w-5 h-5 mb-0.5 text-amber-400" />
+            <span className="text-[10px] leading-tight font-bold text-amber-300">Suki</span>
+          </button>
+
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-colors text-slate-400 hover:text-slate-200 cursor-pointer"
+          >
+            <Menu className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] leading-tight font-bold">Menu</span>
+          </button>
+        </nav>
       )}
 
       {/* Toast Notification */}

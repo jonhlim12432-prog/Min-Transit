@@ -108,11 +108,11 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
+    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-10 pb-28 md:pb-10">
       
       {/* Mandatory Account Login Banner */}
       {!isLoggedIn && (
-        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-fadeIn">
+        <div className="mb-5 sm:mb-6 p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-fadeIn">
           <div className="flex items-start gap-2.5">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
@@ -134,7 +134,7 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
 
       {/* Mandatory KYC Status Banner */}
       {isVerified ? (
-        <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-xs">
+        <div className="mb-5 sm:mb-6 p-3.5 sm:p-4 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
             <div>
@@ -142,12 +142,12 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
               <span className="text-emerald-700">Cleared for domestic transportation ticketing & immediate boarding pass issuance.</span>
             </div>
           </div>
-          <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">
+          <span className="bg-emerald-600 text-white font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider shrink-0">
             Verified
           </span>
         </div>
       ) : (
-        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="mb-5 sm:mb-6 p-3.5 sm:p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-start gap-2.5">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
@@ -157,12 +157,12 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
             {onOpenKyc && (
               <button
                 type="button"
                 onClick={onOpenKyc}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                className="w-full sm:w-auto justify-center bg-amber-600 hover:bg-amber-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span>Verify Account (Submit KYC)</span>
@@ -173,24 +173,30 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
       )}
 
       {/* Stepper Header */}
-      <div className="flex items-center justify-between mb-6 sm:mb-8 bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200">
-        {[
-          { num: 1, label: 'Traveler Info' },
-          { num: 2, label: 'Review & Seats' },
-          { num: 3, label: 'Voucher & Suki' },
-          { num: 4, label: 'Secure Payment' }
-        ].map((st) => (
-          <div key={st.num} className="flex items-center space-x-2 sm:space-x-3">
-            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-              step >= st.num ? 'bg-teal-500 text-white shadow-md shadow-teal-500/30' : 'bg-slate-100 text-slate-500'
-            }`}>
-              {step > st.num ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : st.num}
+      <div className="mb-5 sm:mb-8 bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200">
+        <div className="flex items-center justify-between">
+          {[
+            { num: 1, label: 'Traveler Info' },
+            { num: 2, label: 'Review & Seats' },
+            { num: 3, label: 'Voucher & Suki' },
+            { num: 4, label: 'Secure Payment' }
+          ].map((st) => (
+            <div key={st.num} className="flex items-center space-x-1.5 sm:space-x-3">
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                step >= st.num ? 'bg-teal-500 text-white shadow-md shadow-teal-500/30' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {step > st.num ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : st.num}
+              </div>
+              <span className={`text-xs font-bold hidden sm:inline ${step >= st.num ? 'text-slate-900' : 'text-slate-400'}`}>
+                {st.label}
+              </span>
             </div>
-            <span className={`text-xs font-bold hidden sm:inline ${step >= st.num ? 'text-slate-900' : 'text-slate-400'}`}>
-              {st.label}
-            </span>
-          </div>
-        ))}
+          ))}
+        </div>
+        {/* Mobile step label */}
+        <div className="sm:hidden text-center text-xs font-extrabold text-teal-700 mt-2.5 pt-2 border-t border-slate-100">
+          Step {step} of 4: {['Traveler Information', 'Review & Seat Selection', 'Vouchers & Suki Rewards', 'Payment Method'][step - 1]}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">

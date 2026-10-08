@@ -13,6 +13,16 @@ body {
   background: #f7fbfc;
   color: #09283d;
   font-family: "DM Sans", sans-serif;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
 }
 
 button, input, select {
@@ -1383,94 +1393,136 @@ footer {
 }
 
 @media (max-width: 768px) {
-  .announcement { font-size: 10px; padding: 0 40px 0 16px; }
-  .announcement > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .topbar { height: 60px; padding: 0 14px; justify-content: space-between; }
-  .desktop-nav { display: none; }
-  .mobile-menu { display: block; margin-left: 0; }
-  .brand strong { font-size: 18px; }
-  .brand em { font-size: 10px; padding: 1px 6px; }
-  .hero { min-height: 460px; background-position: center; padding-bottom: 50px; }
-  .hero-content { padding: 30px 14px 20px; }
-  .hero h1 { font-size: 36px; line-height: 1.1; }
-  .hero p { font-size: 13px; }
-  .hero p br { display: none; }
-  .hero-pills { flex-wrap: wrap; gap: 8px; }
-  .hero-pill { padding: 6px 14px; font-size: 12px; }
+  /* Prevent iOS Safari aggressive auto-zoom on input focus */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  .announcement { font-size: 10px; padding: 0 36px 0 12px; height: 30px; }
+  .announcement > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 90%; }
   
-  .search-card { margin-top: -24px; width: calc(100% - 20px); padding: 14px; border-radius: 20px; }
+  .topbar { 
+    height: 58px; 
+    padding: 0 12px; 
+    justify-content: space-between; 
+    max-width: 100vw;
+    width: 100%;
+    box-sizing: border-box;
+    gap: 8px;
+  }
+  .desktop-nav { display: none; }
+  .mobile-menu { display: flex; align-items: center; justify-content: center; margin-left: 0; }
+  .brand { min-width: 0; max-width: 62%; gap: 8px; }
+  .brand strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand em { display: none; }
+  .brand small { display: none; }
+  .brand-mark, .mini-logo { width: 34px; height: 34px; font-size: 16px; border-radius: 10px; flex-shrink: 0; }
+  .top-actions { gap: 6px; flex-shrink: 0; }
+  .top-actions button { padding: 6px 10px; font-size: 11px; }
+
+  .hero { min-height: 440px; background-position: center; padding-bottom: 50px; }
+  .hero-content { padding: 24px 12px 16px; }
+  .hero h1 { font-size: 32px; line-height: 1.1; }
+  .hero p { font-size: 13px; line-height: 1.4; }
+  .hero p br { display: none; }
+  .hero-pills { flex-wrap: wrap; gap: 6px; }
+  .hero-pill { padding: 6px 12px; font-size: 11px; }
+  
+  .search-card { 
+    margin-top: -24px; 
+    width: calc(100% - 16px); 
+    max-width: 100%;
+    padding: 14px; 
+    border-radius: 20px; 
+    box-sizing: border-box;
+  }
   .transport-tabs { width: 100%; max-width: 100%; height: 42px; }
   .transport-tab { font-size: 12px; }
-  .search-fields { grid-template-columns: 1fr; gap: 8px; }
+  .search-fields { grid-template-columns: 1fr; gap: 8px; width: 100%; }
   .search-fields .swap { display: none; }
-  .search-fields label { min-height: 48px; }
+  .search-fields label { 
+    min-height: 52px; 
+    padding: 6px 12px; 
+    width: 100%; 
+    box-sizing: border-box; 
+  }
+  .search-fields select, .search-fields input {
+    width: 100%;
+    min-width: 0;
+  }
   .search-btn { grid-column: 1 / -1; height: 48px; width: 100%; border-radius: 14px; font-size: 14px; }
   
-  .section { padding-top: 40px; padding-left: 14px; padding-right: 14px; }
-  .travel-types { padding-top: 45px; }
+  .section { padding-top: 36px; padding-left: 12px; padding-right: 12px; }
+  .travel-types { padding-top: 40px; }
   .travel-grid, .split, .concierge-row, .two-panels { grid-template-columns: 1fr; gap: 12px; }
   .travel-card { height: auto; min-height: 120px; padding: 14px; }
   
   .destination-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .destination img { height: 110px; }
+  .destination img { height: 100px; }
   .destination > div { padding: 8px; }
+  .destination h3 { font-size: 12px; }
+  .destination p { font-size: 9px; margin-bottom: 4px; }
   
   .deal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .deal { height: 140px; padding: 12px; }
-  .deal b { font-size: 18px; }
+  .deal { height: 135px; padding: 10px; }
+  .deal b { font-size: 16px; }
+  .deal strong { font-size: 11px; }
+  .deal span { font-size: 34px; }
   
   .route-list { gap: 4px; }
-  .route { grid-template-columns: 36px 1fr auto; gap: 8px; padding: 10px 0; }
+  .route { grid-template-columns: 32px 1fr auto; gap: 8px; padding: 10px 0; }
   .route button { grid-column: 1 / -1; width: 100%; padding: 8px; border-radius: 10px; font-size: 11px; }
   
   .article-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .article-grid img { height: 100px; }
+  .article-grid img { height: 95px; }
+  .article-grid h3 { font-size: 11px; margin: 4px 10px 10px; }
   
-  .steps-inner { grid-template-columns: 1fr; gap: 16px; padding: 40px 14px 30px; }
+  .steps-inner { grid-template-columns: 1fr; gap: 14px; padding: 36px 12px 28px; }
   .steps-title, .steps-script { grid-column: 1 / -1; text-align: left; transform: none; }
-  .step { grid-template-columns: 26px 32px 1fr; }
+  .step { grid-template-columns: 24px 30px 1fr; }
   
-  .concierge { grid-template-columns: 1fr; text-align: center; padding: 16px; gap: 14px; }
-  .concierge .bot { margin: 0 auto; }
-  .chat-bubble { max-width: 100%; margin: 8px auto; }
+  .concierge { grid-template-columns: 1fr; text-align: center; padding: 16px; gap: 12px; }
+  .concierge .bot, .concierge .robot { margin: 0 auto; font-size: 40px; }
+  .chat-bubble { max-width: 100%; margin: 6px auto; }
   .concierge-copy > button { margin: 8px auto 0; }
   .ai-result { grid-column: 1 / -1; text-align: left; }
   
   .rewards ul { display: none; }
   
-  .footer-main { flex-direction: column; align-items: flex-start; gap: 18px; }
-  .footer-links { flex-wrap: wrap; gap: 12px 16px; }
+  .footer-main { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .footer-links { flex-wrap: wrap; gap: 10px 14px; }
   .stores { flex-wrap: wrap; }
 }
 
 @media (max-width: 480px) {
-  .topbar { height: 56px; padding: 0 12px; }
-  .brand strong { font-size: 16px; }
+  .topbar { height: 54px; padding: 0 10px; }
+  .brand strong { font-size: 14px; max-width: 120px; }
   .brand small { display: none; }
-  .brand-mark, .mini-logo { width: 36px; height: 36px; font-size: 18px; }
-  .hero { min-height: 420px; }
-  .hero h1 { font-size: 28px; }
+  .brand-mark, .mini-logo { width: 32px; height: 32px; font-size: 15px; }
+  .hero { min-height: 400px; }
+  .hero h1 { font-size: 26px; }
   .hero p { font-size: 12px; }
   .hero-pills { display: none; }
   
-  .search-card { width: calc(100% - 16px); padding: 12px; margin-top: -20px; }
-  .search-fields label { padding: 6px 10px; }
+  .search-card { width: calc(100% - 12px); padding: 10px; margin-top: -18px; }
+  .search-fields label { padding: 5px 8px; }
   
-  .destination-grid { grid-template-columns: 1fr; gap: 12px; }
-  .destination img { height: 130px; }
+  .destination-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .destination img { height: 90px; }
   
-  .deal-grid { grid-template-columns: 1fr; gap: 8px; }
-  .deal { height: 125px; }
+  .deal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .deal { height: 125px; padding: 8px; }
+  .deal b { font-size: 14px; }
   
-  .article-grid { grid-template-columns: 1fr; gap: 12px; }
-  .article-grid img { height: 130px; }
+  .article-grid { grid-template-columns: 1fr; gap: 10px; }
+  .article-grid img { height: 120px; }
   
-  .trip { grid-template-columns: 38px 1fr; gap: 8px; }
+  .trip { grid-template-columns: 36px 1fr; gap: 8px; }
   .trip > div:nth-child(3) { grid-column: 2; }
   .trip > button { grid-column: 2; width: 100%; padding: 8px; font-size: 11px; }
   
-  .admin-top { padding: 8px 12px; }
-  .admin-top b { font-size: 13px; }
+  .admin-top { padding: 8px 10px; }
+  .admin-top b { font-size: 12px; }
 }
 
 /* Dashboard & Admin Layout Styles */
