@@ -41,38 +41,7 @@ try {
 
 let schedulesStore = dbState.schedules || [...MOCK_SCHEDULES];
 let vouchersStore = dbState.vouchers || [...MOCK_VOUCHERS];
-let bookingsStore = dbState.bookings || [
-  {
-    id: 'bk-101',
-    bookingCode: 'MTTH-CAM-8821',
-    userId: 'user-suki-001',
-    scheduleId: 'sch-1',
-    transportType: 'ferry',
-    operatorName: 'SuperFerry Mindanao',
-    operatorLogo: 'SFM',
-    origin: 'Cagayan de Oro',
-    destination: 'Camiguin Island',
-    departureTime: '2026-10-10T06:00:00',
-    arrivalTime: '2026-10-10T09:30:00',
-    passengers: [
-      { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: 'A12' }
-    ],
-    selectedClass: 'Tourist',
-    baseFare: 850,
-    terminalFee: 30,
-    serviceFee: 50,
-    taxes: 45,
-    discountAmount: 85,
-    voucherCode: 'WELCOME10',
-    sukiDiscountAmount: 40,
-    totalPaid: 850,
-    sukiPointsEarned: 250,
-    paymentMethod: 'GCash',
-    status: 'confirmed',
-    createdAt: '2026-10-01T10:00:00Z',
-    qrCodeToken: 'MTTH-QR-SECURE-CAM-9921'
-  }
-];
+let bookingsStore: Booking[] = dbState.bookings || [];
 let customersKycStore = dbState.customersKyc || [...MOCK_CUSTOMERS_KYC];
 let subAdminsStore = dbState.subAdmins || [
   {

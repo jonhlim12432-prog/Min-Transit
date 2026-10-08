@@ -61,8 +61,9 @@ a {
   color: #fff;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 3.4%;
-  gap: 28px;
+  gap: 20px;
   position: sticky;
   top: 0;
   z-index: 40;
@@ -182,6 +183,7 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
 .ai-btn {
@@ -1362,61 +1364,113 @@ footer {
   to { opacity: 1; transform: scale(1); }
 }
 
-@media (max-width: 1050px) {
-  .desktop-nav { gap: 8px; }
+@media (max-width: 1024px) {
+  .topbar { height: 66px; padding: 0 20px; justify-content: space-between; }
+  .desktop-nav { display: none; }
+  .mobile-menu { display: block; margin-left: 0; }
   .top-actions .points, .top-actions .icon-btn { display: none; }
-  .hero-content { padding-left: 5%; }
-  .search-fields { grid-template-columns: 1fr 30px 1fr 1fr 1fr; }
-  .search-btn { grid-column: 1 / -1; height: 42px; }
-  .destination-grid { grid-template-columns: repeat(3, 1fr); }
-  .section { padding-left: 4%; padding-right: 4%; }
-  .steps-inner { grid-template-columns: repeat(3, 1fr); }
-}
-
-@media (max-width: 760px) {
-  .announcement { font-size: 9px; }
-  .topbar { height: 62px; padding: 0 16px; }
-  .desktop-nav, .top-actions { display: none; }
-  .mobile-menu { display: block; margin-left: auto; }
-  .hero { min-height: 540px; background-position: center; }
-  .hero-content { padding: 35px 16px; }
-  .hero h1 { font-size: 38px; }
-  .hero p br { display: none; }
+  .hero { min-height: 480px; }
+  .hero-content { padding: 36px 20px; }
   .hero-script { display: none; }
-  .search-card { margin-top: -20px; width: calc(100% - 24px); padding: 12px; }
-  .transport-tabs { width: 100%; }
-  .search-fields { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .search-card { width: min(100% - 32px, 920px); margin-top: -30px; padding: 16px; }
+  .search-fields { grid-template-columns: 1fr 1fr; gap: 10px; }
   .search-fields .swap { display: none; }
-  .search-fields label:nth-of-type(1), .search-fields label:nth-of-type(2) { grid-column: auto; }
-  .search-btn { grid-column: 1 / -1; height: 45px; }
-  .section { padding-top: 45px; }
-  .travel-types { padding-top: 50px; }
-  .travel-grid, .split, .concierge-row { grid-template-columns: 1fr; }
-  .travel-card { height: 150px; }
-  .destination-grid { grid-template-columns: repeat(2, 1fr); }
-  .deal-grid { grid-template-columns: repeat(2, 1fr); }
-  .deal { height: 145px; }
-  .article-grid { grid-template-columns: repeat(2, 1fr); }
-  .steps-inner { grid-template-columns: 1fr 1fr; }
-  .steps-title, .steps-script { grid-column: 1 / -1; }
-  .footer-main { flex-direction: column; align-items: flex-start; }
-  .footer-links { flex-wrap: wrap; }
-  .rewards ul { display: none; }
-  .concierge { grid-template-columns: 55px 1fr; }
-  .ai-result { grid-column: 1 / -1; }
-  .section-heading.inline { align-items: start; }
-  .hero-pills { flex-wrap: wrap; }
+  .search-btn { grid-column: 1 / -1; height: 46px; }
+  .destination-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .section { padding-left: 20px; padding-right: 20px; padding-top: 50px; }
+  .split, .concierge-row, .two-panels { grid-template-columns: 1fr; }
+  .steps-inner { grid-template-columns: repeat(3, 1fr); gap: 16px; }
 }
 
-@media (max-width: 440px) {
-  .destination-grid, .article-grid { grid-template-columns: 1fr 1fr; }
-  .deal-grid { gap: 6px; }
-  .deal b { font-size: 16px; }
-  .search-fields { grid-template-columns: 1fr; }
-  .search-btn { grid-column: auto; }
-  .hero h1 { font-size: 32px; }
-  .steps-inner { grid-template-columns: 1fr; }
-  .step { grid-template-columns: 30px 34px 1fr; }
+@media (max-width: 768px) {
+  .announcement { font-size: 10px; padding: 0 40px 0 16px; }
+  .announcement > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar { height: 60px; padding: 0 14px; justify-content: space-between; }
+  .desktop-nav { display: none; }
+  .mobile-menu { display: block; margin-left: 0; }
+  .brand strong { font-size: 18px; }
+  .brand em { font-size: 10px; padding: 1px 6px; }
+  .hero { min-height: 460px; background-position: center; padding-bottom: 50px; }
+  .hero-content { padding: 30px 14px 20px; }
+  .hero h1 { font-size: 36px; line-height: 1.1; }
+  .hero p { font-size: 13px; }
+  .hero p br { display: none; }
+  .hero-pills { flex-wrap: wrap; gap: 8px; }
+  .hero-pill { padding: 6px 14px; font-size: 12px; }
+  
+  .search-card { margin-top: -24px; width: calc(100% - 20px); padding: 14px; border-radius: 20px; }
+  .transport-tabs { width: 100%; max-width: 100%; height: 42px; }
+  .transport-tab { font-size: 12px; }
+  .search-fields { grid-template-columns: 1fr; gap: 8px; }
+  .search-fields .swap { display: none; }
+  .search-fields label { min-height: 48px; }
+  .search-btn { grid-column: 1 / -1; height: 48px; width: 100%; border-radius: 14px; font-size: 14px; }
+  
+  .section { padding-top: 40px; padding-left: 14px; padding-right: 14px; }
+  .travel-types { padding-top: 45px; }
+  .travel-grid, .split, .concierge-row, .two-panels { grid-template-columns: 1fr; gap: 12px; }
+  .travel-card { height: auto; min-height: 120px; padding: 14px; }
+  
+  .destination-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .destination img { height: 110px; }
+  .destination > div { padding: 8px; }
+  
+  .deal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .deal { height: 140px; padding: 12px; }
+  .deal b { font-size: 18px; }
+  
+  .route-list { gap: 4px; }
+  .route { grid-template-columns: 36px 1fr auto; gap: 8px; padding: 10px 0; }
+  .route button { grid-column: 1 / -1; width: 100%; padding: 8px; border-radius: 10px; font-size: 11px; }
+  
+  .article-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .article-grid img { height: 100px; }
+  
+  .steps-inner { grid-template-columns: 1fr; gap: 16px; padding: 40px 14px 30px; }
+  .steps-title, .steps-script { grid-column: 1 / -1; text-align: left; transform: none; }
+  .step { grid-template-columns: 26px 32px 1fr; }
+  
+  .concierge { grid-template-columns: 1fr; text-align: center; padding: 16px; gap: 14px; }
+  .concierge .bot { margin: 0 auto; }
+  .chat-bubble { max-width: 100%; margin: 8px auto; }
+  .concierge-copy > button { margin: 8px auto 0; }
+  .ai-result { grid-column: 1 / -1; text-align: left; }
+  
+  .rewards ul { display: none; }
+  
+  .footer-main { flex-direction: column; align-items: flex-start; gap: 18px; }
+  .footer-links { flex-wrap: wrap; gap: 12px 16px; }
+  .stores { flex-wrap: wrap; }
+}
+
+@media (max-width: 480px) {
+  .topbar { height: 56px; padding: 0 12px; }
+  .brand strong { font-size: 16px; }
+  .brand small { display: none; }
+  .brand-mark, .mini-logo { width: 36px; height: 36px; font-size: 18px; }
+  .hero { min-height: 420px; }
+  .hero h1 { font-size: 28px; }
+  .hero p { font-size: 12px; }
+  .hero-pills { display: none; }
+  
+  .search-card { width: calc(100% - 16px); padding: 12px; margin-top: -20px; }
+  .search-fields label { padding: 6px 10px; }
+  
+  .destination-grid { grid-template-columns: 1fr; gap: 12px; }
+  .destination img { height: 130px; }
+  
+  .deal-grid { grid-template-columns: 1fr; gap: 8px; }
+  .deal { height: 125px; }
+  
+  .article-grid { grid-template-columns: 1fr; gap: 12px; }
+  .article-grid img { height: 130px; }
+  
+  .trip { grid-template-columns: 38px 1fr; gap: 8px; }
+  .trip > div:nth-child(3) { grid-column: 2; }
+  .trip > button { grid-column: 2; width: 100%; padding: 8px; font-size: 11px; }
+  
+  .admin-top { padding: 8px 12px; }
+  .admin-top b { font-size: 13px; }
 }
 
 /* Dashboard & Admin Layout Styles */

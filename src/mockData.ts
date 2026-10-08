@@ -1003,63 +1003,72 @@ export const MOCK_REVIEWS: Review[] = [
   }
 ];
 
-export const INITIAL_SUKI_ACCOUNT: SukiAccount = {
-  userId: 'user-suki-001',
-  name: 'Maria Santos',
-  email: 'maria.santos@example.com',
-  tier: 'Gold',
-  points: 4250,
-  pointsToNextTier: 750, // 6000 for VIP
-  completedTrips: 18,
-  vouchersCount: 3,
-  joinedDate: 'January 2025',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
+export const createBlankSukiAccount = (userId: string, name: string, email: string): SukiAccount => ({
+  userId,
+  name,
+  email,
+  tier: 'Starter',
+  points: 100, // Welcome bonus points
+  pointsToNextTier: 900,
+  completedTrips: 0,
+  vouchersCount: 1,
+  joinedDate: 'October 2026',
+  avatar: ''
+});
+
+export const createBlankUserProfile = (id: string, fullName: string, email: string, phone: string = ''): UserProfile => {
+  const parts = fullName.trim().split(' ');
+  const firstName = parts[0] || '';
+  const lastName = parts.slice(1).join(' ') || '';
+  return {
+    id,
+    fullName,
+    firstName,
+    lastName,
+    avatarUrl: '',
+    email,
+    phone,
+    dob: '2000-01-01',
+    gender: 'other',
+    nationality: 'Filipino',
+    address: {
+      street: '',
+      city: '',
+      province: '',
+      region: '',
+      zipCode: ''
+    },
+    emergencyContact: {
+      name: '',
+      relationship: '',
+      phone: ''
+    },
+    travelPreferences: {
+      seatPreference: 'window',
+      specialAssistance: false,
+      frequentFlyerNo: '',
+      preferredBusClass: 'Aircon',
+      preferredFerryClass: 'Tourist'
+    },
+    notificationSettings: {
+      emailTripUpdates: true,
+      smsDepartureAlerts: true,
+      promotionalOffers: true
+    },
+    kyc: {
+      status: 'unverified',
+      idType: 'philsys_national_id',
+      idNumber: '',
+      submittedAt: '',
+      verifiedAt: '',
+      verificationCode: ''
+    }
+  };
 };
 
-export const INITIAL_USER_PROFILE: UserProfile = {
-  id: 'user-suki-001',
-  fullName: 'Maria Santos',
-  firstName: 'Maria',
-  lastName: 'Santos',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-  email: 'maria.santos@example.com',
-  phone: '+63 917 123 4567',
-  dob: '1992-05-14',
-  gender: 'female',
-  nationality: 'Filipino',
-  address: {
-    street: '142 Rizal Avenue, Barangay Nazareth',
-    city: 'Cagayan de Oro',
-    province: 'Misamis Oriental',
-    region: 'Region X (Northern Mindanao)',
-    zipCode: '9000'
-  },
-  emergencyContact: {
-    name: 'Roberto Santos',
-    relationship: 'Brother',
-    phone: '+63 918 987 6543'
-  },
-  travelPreferences: {
-    seatPreference: 'window',
-    specialAssistance: false,
-    frequentFlyerNo: 'PAL-8829104',
-    preferredBusClass: 'Executive Aircon',
-    preferredFerryClass: 'Tourist Aircon'
-  },
-  notificationSettings: {
-    emailTripUpdates: true,
-    smsDepartureAlerts: true,
-    promotionalOffers: false
-  },
-  kyc: {
-    status: 'unverified', // Unverified by default so user can test the mandatory KYC verification flow!
-    idType: 'philsys_national_id',
-    idNumber: '',
-    submittedAt: '',
-    verifiedAt: '',
-    verificationCode: ''
-  }
-};
+export const INITIAL_SUKI_ACCOUNT: SukiAccount = createBlankSukiAccount('guest-user', 'Guest Traveler', '');
+
+export const INITIAL_USER_PROFILE: UserProfile = createBlankUserProfile('guest-user', 'Guest Traveler', '');
 
 export interface CustomerKycRecord {
   id: string;
@@ -1075,18 +1084,6 @@ export interface CustomerKycRecord {
 }
 
 export const MOCK_CUSTOMERS_KYC: CustomerKycRecord[] = [
-  {
-    id: 'cust-1',
-    name: 'Maria Santos',
-    email: 'maria.santos@example.com',
-    phone: '+63 917 123 4567',
-    tier: 'Gold Suki',
-    kycStatus: 'unverified',
-    idType: 'PhilSys National ID',
-    idNumber: '4829-1092-3849',
-    submittedAt: 'Pending Submission',
-    completedBookings: 18
-  },
   {
     id: 'cust-2',
     name: 'Juan Dela Cruz',

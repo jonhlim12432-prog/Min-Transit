@@ -13,6 +13,7 @@ interface ProfileModalProps {
   onClose: () => void;
   onUpdateProfile: (updated: UserProfile) => void;
   onQuickVerifyKyc?: () => void;
+  onLogout?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ 
@@ -21,7 +22,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   initialTab = 'info', 
   onClose,
   onUpdateProfile,
-  onQuickVerifyKyc
+  onQuickVerifyKyc,
+  onLogout
 }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'kyc' | 'settings' | 'suki'>(initialTab);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -684,10 +686,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                       type="button"
                       onClick={() => handleAutoFillDemoId()}
                       className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 font-bold px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-                      title="Auto-fill with valid Philippine Demo ID and document scans for instant test"
+                      title="Auto-fill with official Philippine sample ID format and document verification"
                     >
                       <Sparkles className="w-3 h-3 text-teal-600" />
-                      <span>Auto-fill Valid Demo ID</span>
+                      <span>Sample ID Format</span>
                     </button>
                     {kycForm.idNumber && (
                       <button
@@ -701,9 +703,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   </div>
                 </div>
 
-                {/* Quick 1-Click Valid Demo ID Selector Chips */}
+                {/* Quick 1-Click Valid Sample ID Selector Chips */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center gap-1.5 overflow-x-auto text-[11px]">
-                  <span className="text-slate-500 font-bold whitespace-nowrap text-[10px] uppercase tracking-wide">Quick Preset IDs:</span>
+                  <span className="text-slate-500 font-bold whitespace-nowrap text-[10px] uppercase tracking-wide">ID Formats:</span>
                   {DEMO_ID_PRESETS.map((p) => (
                     <button
                       key={p.type}
@@ -1004,12 +1006,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             )}
           </div>
 
-          <button
-            onClick={onClose}
-            className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow cursor-pointer transition-colors"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            {onLogout && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onLogout();
+                }}
+                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold px-4 py-2.5 rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                Sign Out
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow cursor-pointer transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
       </div>

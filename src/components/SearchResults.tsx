@@ -135,9 +135,9 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
         <div className="lg:col-span-3 space-y-4">
           
           {/* Sorting Header */}
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200/80 flex items-center justify-between">
+          <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sort Results By:</span>
-            <div className="flex space-x-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
               {[
                 { id: 'recommended', label: 'Recommended' },
                 { id: 'cheapest', label: 'Cheapest Price' },
@@ -146,7 +146,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                 <button
                   key={s.id}
                   onClick={() => setSortBy(s.id as any)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                     sortBy === s.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
@@ -231,8 +231,8 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                   </div>
 
                   {/* Footer perks & CTA */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                    <div className="flex items-center space-x-4 text-xs font-semibold text-slate-500">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
+                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 text-xs font-semibold text-slate-500">
                       <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5 text-slate-400" /> {sch.baggageAllowance}</span>
                       <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-slate-400" /> {sch.availableSeats} seats left</span>
                       <span className="text-amber-600 flex items-center space-x-1">
@@ -243,7 +243,7 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 
                     <button
                       onClick={() => onSelectSchedule(sch)}
-                      className="w-full sm:w-auto bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md transition-transform active:scale-95 text-sm flex items-center justify-center space-x-2"
+                      className="w-full sm:w-auto bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md transition-transform active:scale-95 text-sm flex items-center justify-center space-x-2 cursor-pointer"
                     >
                       <span>Select Trip</span>
                       <ArrowRight className="w-4 h-4" />

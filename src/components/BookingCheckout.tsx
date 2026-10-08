@@ -8,6 +8,9 @@ interface BookingCheckoutProps {
   sukiAccount: SukiAccount;
   vouchers: Voucher[];
   userProfile?: UserProfile;
+  currentUser?: any;
+  isLoggedIn?: boolean;
+  onRequireLogin?: () => void;
   onOpenKyc?: () => void;
   onQuickVerifyKyc?: () => void;
   onCompleteBooking: (bookingData: any) => void;
@@ -20,6 +23,9 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
   sukiAccount,
   vouchers,
   userProfile,
+  currentUser,
+  isLoggedIn = false,
+  onRequireLogin,
   onOpenKyc,
   onQuickVerifyKyc,
   onCompleteBooking,
@@ -27,14 +33,14 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
-  // Passengers form state
-  const [passengers, setPassengers] = useState<Passenger[]>(
+  // Passengers form state (autofilled from logged-in user, no demo account)
+  const [passengers, setPassengers] = useState<Passenger[]>(() => 
     Array.from({ length: passengersCount }, (_, idx) => ({
-      fullName: idx === 0 ? sukiAccount.name : '',
-      dob: '1995-06-15',
-      gender: 'female',
-      mobile: idx === 0 ? '+639171234567' : '',
-      email: idx === 0 ? sukiAccount.email : '',
+      fullName: idx === 0 ? (currentUser?.fullName || userProfile?.fullName || '') : '',
+      dob: idx === 0 ? (userProfile?.dob || '1998-05-12') : '1998-05-12',
+      gender: idx === 0 ? (userProfile?.gender || 'female') : 'female',
+      mobile: idx === 0 ? (currentUser?.phone || userProfile?.phone || '') : '',
+      email: idx === 0 ? (currentUser?.email || userProfile?.email || sukiAccount.email || '') : '',
       passengerType: 'adult',
       seatNumber: `Seat ${idx + 12}`
     }))
@@ -66,6 +72,11 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
   const isVerified = userProfile?.kyc?.status === 'verified';
 
   const handleFinishPayment = () => {
+    if (!isLoggedIn) {
+      if (onRequireLogin) onRequireLogin();
+      return;
+    }
+
     if (!isVerified) {
       if (onOpenKyc) onOpenKyc();
       return;
@@ -97,8 +108,30 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
       
+      {/* Mandatory Account Login Banner */}
+      {!isLoggedIn && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-fadeIn">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <strong className="text-amber-950 font-extrabold block text-sm">Account Required to Purchase Tickets</strong>
+              <span className="text-amber-900">
+                You must create or log in to a verified traveler account before completing ticket purchases and securing your seat.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onRequireLogin}
+            className="w-full sm:w-auto text-center bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs shadow-md transition-all cursor-pointer shrink-0"
+          >
+            Sign In / Create Account
+          </button>
+        </div>
+      )}
+
       {/* Mandatory KYC Status Banner */}
       {isVerified ? (
         <div className="mb-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 flex items-center justify-between text-xs">
@@ -140,18 +173,18 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
       )}
 
       {/* Stepper Header */}
-      <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+      <div className="flex items-center justify-between mb-6 sm:mb-8 bg-white p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200">
         {[
           { num: 1, label: 'Traveler Info' },
           { num: 2, label: 'Review & Seats' },
           { num: 3, label: 'Voucher & Suki' },
           { num: 4, label: 'Secure Payment' }
         ].map((st) => (
-          <div key={st.num} className="flex items-center space-x-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+          <div key={st.num} className="flex items-center space-x-2 sm:space-x-3">
+            <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
               step >= st.num ? 'bg-teal-500 text-white shadow-md shadow-teal-500/30' : 'bg-slate-100 text-slate-500'
             }`}>
-              {step > st.num ? <Check className="w-4 h-4 text-white" /> : st.num}
+              {step > st.num ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : st.num}
             </div>
             <span className={`text-xs font-bold hidden sm:inline ${step >= st.num ? 'text-slate-900' : 'text-slate-400'}`}>
               {st.label}
@@ -160,7 +193,7 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
         
         {/* Left Step Form */}
         <div className="lg:col-span-8 space-y-6">
@@ -184,7 +217,7 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
                         type="text" 
                         value={p.fullName}
                         onChange={(e) => handlePassengerChange(idx, 'fullName', e.target.value)}
-                        placeholder="e.g. Maria Santos"
+                        placeholder="e.g. Juan Dela Cruz"
                         className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-teal-500"
                       />
                     </div>
@@ -224,7 +257,7 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
               <div className="flex justify-end pt-4">
                 <button
                   onClick={() => setStep(2)}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md text-sm flex items-center space-x-2"
+                  className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md text-sm flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <span>Continue to Review</span>
                   <ArrowRight className="w-4 h-4" />
@@ -234,11 +267,11 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
           )}
 
           {step === 2 && (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-slate-200/80 space-y-6 animate-fadeIn">
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-md border border-slate-200/80 space-y-6 animate-fadeIn">
               <h3 className="text-xl font-extrabold text-slate-900">Review Journey & Seat Assignment</h3>
               
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
-                <div className="flex justify-between items-center font-bold text-slate-900">
+              <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between font-bold text-slate-900 gap-1">
                   <span>{schedule.origin} → {schedule.destination}</span>
                   <span className="text-teal-600">{schedule.operatorName}</span>
                 </div>
@@ -259,16 +292,16 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
                 ))}
               </div>
 
-              <div className="flex justify-between pt-4">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4">
                 <button
                   onClick={() => setStep(1)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm"
+                  className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm cursor-pointer text-center"
                 >
                   Back
                 </button>
                 <button
                   onClick={() => setStep(3)}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md text-sm flex items-center space-x-2"
+                  className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md text-sm flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <span>Apply Vouchers & Suki</span>
                   <ArrowRight className="w-4 h-4" />
@@ -326,16 +359,16 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
                 />
               </div>
 
-              <div className="flex justify-between pt-4">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4">
                 <button
                   onClick={() => setStep(2)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm"
+                  className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm cursor-pointer text-center"
                 >
                   Back
                 </button>
                 <button
                   onClick={() => setStep(4)}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md text-sm flex items-center space-x-2"
+                  className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-md text-sm flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <span>Proceed to Payment</span>
                   <ArrowRight className="w-4 h-4" />
@@ -345,10 +378,10 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
           )}
 
           {step === 4 && (
-            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-slate-200/80 space-y-6 animate-fadeIn">
+            <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-md border border-slate-200/80 space-y-6 animate-fadeIn">
               <h3 className="text-xl font-extrabold text-slate-900">Select Secure Payment Gateway</h3>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 {[
                   { id: 'GCash', label: 'GCash', icon: Wallet, color: 'text-emerald-500' },
                   { id: 'Maya', label: 'Maya', icon: Smartphone, color: 'text-violet-500' },
@@ -361,14 +394,14 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
                       key={pm.id}
                       type="button"
                       onClick={() => setPaymentMethod(pm.id)}
-                      className={`p-4 rounded-2xl border text-center transition-all ${
+                      className={`p-3.5 sm:p-4 rounded-2xl border text-center transition-all cursor-pointer ${
                         paymentMethod === pm.id
                           ? 'border-teal-500 bg-teal-50 shadow-md ring-2 ring-teal-500/20'
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex justify-center mb-2">
-                        <Icon className={`w-7 h-7 ${pm.color}`} />
+                      <div className="flex justify-center mb-1.5 sm:mb-2">
+                        <Icon className={`w-6 h-6 sm:w-7 sm:h-7 ${pm.color}`} />
                       </div>
                       <div className="text-xs font-bold text-slate-800">{pm.label}</div>
                     </button>
@@ -377,8 +410,8 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
-                <p className="font-bold text-slate-800">Demo Payment Mode Active</p>
-                <p>This is a simulated secure transaction for the Mindanao Travel Ticketing Hub preview environment. No real funds will be charged.</p>
+                <p className="font-bold text-slate-800">Verified Payment Sandbox Active</p>
+                <p>Simulated secure checkout for Mindanao Travel Ticketing Hub. All Philippine payment gateways (GCash, Maya, Bank Transfer) ready.</p>
               </div>
 
               {!isVerified && (
@@ -405,34 +438,44 @@ export const BookingCheckout: React.FC<BookingCheckoutProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-between pt-4">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4">
                 <button
                   onClick={() => setStep(3)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm cursor-pointer"
+                  className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-6 py-3.5 rounded-2xl text-sm cursor-pointer text-center"
                 >
                   Back
                 </button>
-                <button
-                  onClick={handleFinishPayment}
-                  disabled={!isVerified}
-                  className={`${
-                    isVerified 
-                      ? 'bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 shadow-xl shadow-teal-500/25 cursor-pointer' 
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                  } text-white font-extrabold px-10 py-4 rounded-2xl text-base flex items-center space-x-2 transition-all`}
-                >
-                  {isVerified ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>Pay ₱{finalTotal.toLocaleString()} & Issue Ticket</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-5 h-5 text-rose-600" />
-                      <span>Verify Account to Pay ₱{finalTotal.toLocaleString()}</span>
-                    </>
-                  )}
-                </button>
+                {!isLoggedIn ? (
+                  <button
+                    onClick={onRequireLogin}
+                    className="w-full sm:w-auto bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-extrabold px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl text-sm sm:text-base flex items-center justify-center space-x-2 shadow-xl shadow-teal-500/25 cursor-pointer transition-all hover:scale-105"
+                  >
+                    <User className="w-5 h-5 shrink-0" />
+                    <span>Sign In or Register to Purchase</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleFinishPayment}
+                    disabled={!isVerified}
+                    className={`${
+                      isVerified 
+                        ? 'bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 shadow-xl shadow-teal-500/25 cursor-pointer' 
+                        : 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                    } text-white font-extrabold px-6 sm:px-10 py-3.5 sm:py-4 rounded-2xl text-sm sm:text-base flex items-center justify-center space-x-2 transition-all w-full sm:w-auto`}
+                  >
+                    {isVerified ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 shrink-0" />
+                        <span>Pay ₱{finalTotal.toLocaleString()} & Issue Ticket</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                        <span>Verify KYC to Pay ₱{finalTotal.toLocaleString()}</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           )}

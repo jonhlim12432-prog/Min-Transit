@@ -297,3 +297,25 @@ export interface SubAdmin {
   createdAt: string;
   lastActive: string;
 }
+
+export interface RegisteredUser {
+  id: string;
+  email: string;
+  password: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  createdAt: string;
+  userProfile: UserProfile;
+  sukiAccount: SukiAccount;
+}
+
+export interface AdminSession {
+  email: string;
+  name: string;
+  role: 'Super Admin' | 'Operations Admin' | 'Ticketing Agent' | 'Support Agent';
+  token: string;
+  loggedInAt: string;
+}
+

@@ -8,10 +8,12 @@ import {
   Edit3, Trash2, Eye, Plus, Filter, RefreshCw, CheckCircle2
 } from 'lucide-react';
 import { 
-  Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin, UserProfile, KycVerification 
+  Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin, UserProfile, KycVerification,
+  RegisteredUser, AdminSession 
 } from './types';
 import { 
-  MOCK_SCHEDULES, MOCK_VOUCHERS, INITIAL_SUKI_ACCOUNT, INITIAL_USER_PROFILE, MOCK_CUSTOMERS_KYC, CustomerKycRecord 
+  MOCK_SCHEDULES, MOCK_VOUCHERS, INITIAL_SUKI_ACCOUNT, INITIAL_USER_PROFILE, MOCK_CUSTOMERS_KYC, CustomerKycRecord,
+  createBlankUserProfile, createBlankSukiAccount 
 } from './mockData';
 
 import { SearchResults } from './components/SearchResults';
@@ -21,6 +23,8 @@ import { DigitalTicketModal } from './components/DigitalTicketModal';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ProfileModal } from './components/ProfileModal';
 import { VercelDeployModal } from './components/VercelDeployModal';
+import { AdminLoginScreen } from './components/AdminLoginScreen';
+import { UserAuthModal } from './components/UserAuthModal';
 import { 
   ViewKycDocsModal, 
   EditCustomerModal, 
@@ -31,7 +35,7 @@ import {
 } from './components/AdminManagerModals';
 import { db } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { OperationType, handleFirestoreError } from './utils/firestoreHelpers';
+import { OperationType, handleFirestoreError, isFirestoreQuotaExhausted } from './utils/firestoreHelpers';
 
 export default function App() {
   // Navigation & View mode: 'landing' | 'dashboard' | 'admin' | 'search-results' | 'checkout' | 'confirmation'
@@ -213,12 +217,71 @@ export default function App() {
   const [searchMsg, setSearchMsg] = useState('');
 
   // Data Stores with Robust Persistent Storage Across Sessions & Devices
+  // Traveler Authentication & Accounts (No Demo Accounts)
+  const [currentUser, setCurrentUser] = useState<RegisteredUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_active_user');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_registered_users');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtth_registered_users', JSON.stringify(registeredUsers));
+    } catch {}
+  }, [registeredUsers]);
+
+  // Admin Session (Guards Admin CMS, Default Super Admin: markkennethulgasan@gmail.com / kenneth10)
+  const [adminSession, setAdminSession] = useState<AdminSession | null>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_admin_session');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  useEffect(() => {
+    try {
+      if (adminSession) {
+        localStorage.setItem('mtth_admin_session', JSON.stringify(adminSession));
+      } else {
+        localStorage.removeItem('mtth_admin_session');
+      }
+    } catch {}
+  }, [adminSession]);
+
+  // User Auth Modal States
+  const [userAuthModalOpen, setUserAuthModalOpen] = useState(false);
+  const [userAuthMode, setUserAuthMode] = useState<'login' | 'register'>('login');
+  const [userAuthMessage, setUserAuthMessage] = useState('');
+  const [pendingScheduleToBook, setPendingScheduleToBook] = useState<Schedule | null>(null);
+
+  const handleOpenAuthModal = (mode: 'login' | 'register' = 'login', msg: string = '') => {
+    setUserAuthMode(mode);
+    setUserAuthMessage(msg);
+    setUserAuthModalOpen(true);
+  };
+
   const [sukiAccount, setSukiAccount] = useState<SukiAccount>(() => {
     try {
+      const userSaved = localStorage.getItem('mtth_active_user');
+      if (userSaved) {
+        const parsed = JSON.parse(userSaved);
+        if (parsed.sukiAccount) return parsed.sukiAccount;
+      }
       const saved = localStorage.getItem('mtth_suki_account');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return INITIAL_SUKI_ACCOUNT;
+    return createBlankSukiAccount('guest-user', 'Guest Traveler', '');
   });
   useEffect(() => {
     try { localStorage.setItem('mtth_suki_account', JSON.stringify(sukiAccount)); } catch {}
@@ -246,85 +309,38 @@ export default function App() {
     try { localStorage.setItem('mtth_vouchers', JSON.stringify(vouchers)); } catch {}
   }, [vouchers]);
 
+  // Bookings Store - Clean real bookings only (Removed demo Maria Santos bookings)
   const [bookings, setBookings] = useState<Booking[]>(() => {
     try {
       const saved = localStorage.getItem('mtth_bookings');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return [
-      {
-        id: 'bk-101',
-        bookingCode: 'MTTH-CAM-8821',
-        userId: 'user-suki-001',
-        scheduleId: 'sch-1',
-        transportType: 'ferry',
-        operatorName: 'SuperFerry Mindanao',
-        operatorLogo: 'SFM',
-        origin: 'Cagayan de Oro',
-        destination: 'Camiguin Island',
-        departureTime: '2026-10-18T06:00:00',
-        arrivalTime: '2026-10-18T09:30:00',
-        passengers: [
-          { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: 'A12' }
-        ],
-        selectedClass: 'Tourist',
-        baseFare: 850,
-        terminalFee: 30,
-        serviceFee: 50,
-        taxes: 45,
-        discountAmount: 85,
-        voucherCode: 'WELCOME10',
-        sukiDiscountAmount: 40,
-        totalPaid: 900,
-        sukiPointsEarned: 250,
-        paymentMethod: 'GCash',
-        status: 'confirmed',
-        createdAt: '2026-10-01T10:00:00Z',
-        qrCodeToken: 'MTTH-QR-SECURE-CAM-9921'
-      },
-      {
-        id: 'bk-102',
-        bookingCode: 'MTTH-20261104-002',
-        userId: 'user-suki-001',
-        scheduleId: 'sch-5',
-        transportType: 'flight',
-        operatorName: 'Mindanao Express Airlines',
-        operatorLogo: 'MXA',
-        origin: 'Davao City',
-        destination: 'Siargao Island',
-        departureTime: '2026-11-04T07:30:00',
-        arrivalTime: '2026-11-04T08:35:00',
-        passengers: [
-          { fullName: 'Maria Santos', dob: '1992-05-14', gender: 'female', mobile: '+639171234567', email: 'maria.santos@example.com', passengerType: 'adult', seatNumber: '12F' }
-        ],
-        selectedClass: 'Economy',
-        baseFare: 2450,
-        terminalFee: 200,
-        serviceFee: 100,
-        taxes: 120,
-        discountAmount: 500,
-        voucherCode: 'FLYSUKI',
-        sukiDiscountAmount: 171,
-        totalPaid: 2199,
-        sukiPointsEarned: 350,
-        paymentMethod: 'Maya',
-        status: 'confirmed',
-        createdAt: '2026-10-03T14:30:00Z',
-        qrCodeToken: 'MTTH-QR-SECURE-DVO-8812'
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed.filter((b: any) => b.userId !== 'user-suki-001');
       }
-    ];
+    } catch {}
+    return [];
   });
   useEffect(() => {
     try { localStorage.setItem('mtth_bookings', JSON.stringify(bookings)); } catch {}
   }, [bookings]);
 
-  // Sub-Admins Store with Persistence
+  // Sub-Admins Store with Default Super Admin markkennethulgasan@gmail.com
   const [subAdmins, setSubAdmins] = useState<SubAdmin[]>(() => {
     try {
       const saved = localStorage.getItem('mtth_subadmins');
       if (saved) return JSON.parse(saved);
     } catch {}
     return [
+      {
+        id: 'sub-super-admin',
+        name: 'Mark Kenneth Ulgasan',
+        email: 'markkennethulgasan@gmail.com',
+        role: 'Super Admin',
+        status: 'Active',
+        permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Issue Refunds', 'Site Settings'],
+        createdAt: '2026-10-01',
+        lastActive: 'Online now'
+      },
       {
         id: 'sub-1',
         name: 'Carlos Mendoza',
@@ -394,13 +410,18 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
 
-  // User Profile & Mandatory KYC Verification State (with localStorage persistence)
+  // User Profile & Mandatory KYC Verification State
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
+      const userSaved = localStorage.getItem('mtth_active_user');
+      if (userSaved) {
+        const parsed = JSON.parse(userSaved);
+        if (parsed.userProfile) return parsed.userProfile;
+      }
       const saved = localStorage.getItem('mtth_user_profile');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return INITIAL_USER_PROFILE;
+    return createBlankUserProfile('guest-user', 'Guest Traveler', '');
   });
 
   useEffect(() => {
@@ -409,7 +430,72 @@ export default function App() {
     } catch {}
   }, [userProfile]);
 
-  // Real-time Cloud Firestore & Cross-Device Synchronization for Vercel Deployments
+  const handleUserLoginSuccess = (user: RegisteredUser) => {
+    setCurrentUser(user);
+    setUserProfile(user.userProfile);
+    setSukiAccount(user.sukiAccount);
+    try {
+      localStorage.setItem('mtth_active_user', JSON.stringify(user));
+    } catch {}
+
+    setRegisteredUsers(prev => {
+      const exists = prev.some(u => u.email.toLowerCase() === user.email.toLowerCase());
+      if (exists) return prev.map(u => u.email.toLowerCase() === user.email.toLowerCase() ? user : u);
+      return [user, ...prev];
+    });
+
+    setCustomersKyc(prev => {
+      const exists = prev.some(c => c.email.toLowerCase() === user.email.toLowerCase());
+      if (exists) return prev;
+      const newCust: CustomerKycRecord = {
+        id: `cust-${Date.now()}`,
+        name: user.fullName,
+        email: user.email,
+        phone: user.phone || '+63 900 000 0000',
+        tier: user.sukiAccount?.tier ? `${user.sukiAccount.tier} Suki` : 'Starter Suki',
+        kycStatus: user.userProfile?.kyc?.status || 'unverified',
+        idType: user.userProfile?.kyc?.idType || 'PhilSys National ID',
+        idNumber: user.userProfile?.kyc?.idNumber || '',
+        submittedAt: new Date().toISOString().slice(0, 10),
+        completedBookings: 0
+      };
+      return [newCust, ...prev];
+    });
+
+    showToast(`Signed in as ${user.fullName}!`);
+
+    if (pendingScheduleToBook) {
+      setSelectedSchedule(pendingScheduleToBook);
+      setPendingScheduleToBook(null);
+      setActiveView('checkout');
+    }
+  };
+
+  const handleUserLogout = () => {
+    setCurrentUser(null);
+    setUserProfile(createBlankUserProfile('guest-user', 'Guest Traveler', ''));
+    setSukiAccount(createBlankSukiAccount('guest-user', 'Guest Traveler', ''));
+    try {
+      localStorage.removeItem('mtth_active_user');
+    } catch {}
+    showToast('Signed out from account.');
+    if (activeView === 'checkout' || activeView === 'dashboard') {
+      setActiveView('landing');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setAdminSession(null);
+    try {
+      localStorage.removeItem('mtth_admin_session');
+    } catch {}
+    showToast('Admin logged out.');
+  };
+
+  // Real-time Cloud Firestore & Cross-Device Synchronization with Loop Prevention & Quota Protection
+  const isSyncingFromRemote = React.useRef(false);
+  const isInitialMount = React.useRef(true);
+
   useEffect(() => {
     let unsubSettings: (() => void) | null = null;
     let unsubSchedules: (() => void) | null = null;
@@ -418,50 +504,66 @@ export default function App() {
     let unsubKyc: (() => void) | null = null;
     let unsubSubAdmins: (() => void) | null = null;
 
-    try {
-      unsubSettings = onSnapshot(doc(db, 'app_state', 'siteSettings'), (snap) => {
-        if (snap.exists() && snap.data()) {
-          setSiteSettings(snap.data() as SiteSettings);
-        }
-      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/siteSettings'));
+    // Only subscribe to Firestore listeners if quota is not exhausted
+    if (!isFirestoreQuotaExhausted()) {
+      try {
+        unsubSettings = onSnapshot(doc(db, 'app_state', 'siteSettings'), (snap) => {
+          if (snap.exists() && snap.data()) {
+            isSyncingFromRemote.current = true;
+            setSiteSettings(snap.data() as SiteSettings);
+            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
+          }
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/siteSettings'));
 
-      unsubSchedules = onSnapshot(doc(db, 'app_state', 'schedules'), (snap) => {
-        if (snap.exists() && snap.data()?.items) {
-          setSchedules(snap.data()?.items);
-        }
-      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/schedules'));
+        unsubSchedules = onSnapshot(doc(db, 'app_state', 'schedules'), (snap) => {
+          if (snap.exists() && snap.data()?.items) {
+            isSyncingFromRemote.current = true;
+            setSchedules(snap.data()?.items);
+            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
+          }
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/schedules'));
 
-      unsubVouchers = onSnapshot(doc(db, 'app_state', 'vouchers'), (snap) => {
-        if (snap.exists() && snap.data()?.items) {
-          setVouchers(snap.data()?.items);
-        }
-      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/vouchers'));
+        unsubVouchers = onSnapshot(doc(db, 'app_state', 'vouchers'), (snap) => {
+          if (snap.exists() && snap.data()?.items) {
+            isSyncingFromRemote.current = true;
+            setVouchers(snap.data()?.items);
+            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
+          }
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/vouchers'));
 
-      unsubBookings = onSnapshot(doc(db, 'app_state', 'bookings'), (snap) => {
-        if (snap.exists() && snap.data()?.items) {
-          setBookings(snap.data()?.items);
-        }
-      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/bookings'));
+        unsubBookings = onSnapshot(doc(db, 'app_state', 'bookings'), (snap) => {
+          if (snap.exists() && snap.data()?.items) {
+            isSyncingFromRemote.current = true;
+            setBookings(snap.data()?.items);
+            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
+          }
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/bookings'));
 
-      unsubKyc = onSnapshot(doc(db, 'app_state', 'customersKyc'), (snap) => {
-        if (snap.exists() && snap.data()?.items) {
-          setCustomersKyc(snap.data()?.items);
-        }
-      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/customersKyc'));
+        unsubKyc = onSnapshot(doc(db, 'app_state', 'customersKyc'), (snap) => {
+          if (snap.exists() && snap.data()?.items) {
+            isSyncingFromRemote.current = true;
+            setCustomersKyc(snap.data()?.items);
+            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
+          }
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/customersKyc'));
 
-      unsubSubAdmins = onSnapshot(doc(db, 'app_state', 'subAdmins'), (snap) => {
-        if (snap.exists() && snap.data()?.items) {
-          setSubAdmins(snap.data()?.items);
-        }
-      }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/subAdmins'));
-    } catch (e) {
-      console.warn('Firestore subscription fallback:', e);
+        unsubSubAdmins = onSnapshot(doc(db, 'app_state', 'subAdmins'), (snap) => {
+          if (snap.exists() && snap.data()?.items) {
+            isSyncingFromRemote.current = true;
+            setSubAdmins(snap.data()?.items);
+            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
+          }
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/subAdmins'));
+      } catch (e) {
+        console.warn('Firestore subscription notice:', e);
+      }
     }
 
-    // Initial sync fetch fallback
+    // Initial sync fetch fallback via local Express server state
     fetch('/api/admin/state')
       .then(res => res.json())
       .then(data => {
+        isSyncingFromRemote.current = true;
         if (data.schedules) setSchedules(data.schedules);
         if (data.vouchers) setVouchers(data.vouchers);
         if (data.bookings) setBookings(data.bookings);
@@ -469,6 +571,9 @@ export default function App() {
         if (data.subAdmins) setSubAdmins(data.subAdmins);
         if (data.siteSettings) setSiteSettings(data.siteSettings);
         if (data.sukiAccount) setSukiAccount(data.sukiAccount);
+        setTimeout(() => {
+          isSyncingFromRemote.current = false;
+        }, 1000);
       })
       .catch(() => {});
 
@@ -482,36 +587,51 @@ export default function App() {
     };
   }, []);
 
-  // Save changes to Cloud Firestore in real-time across all devices
+  // Save changes to backend & Firestore (with loop suppression, debouncing & quota safety)
   useEffect(() => {
-    const syncToCloud = async () => {
-      try {
-        await setDoc(doc(db, 'app_state', 'siteSettings'), siteSettings);
-        await setDoc(doc(db, 'app_state', 'schedules'), { items: schedules });
-        await setDoc(doc(db, 'app_state', 'vouchers'), { items: vouchers });
-        await setDoc(doc(db, 'app_state', 'bookings'), { items: bookings });
-        await setDoc(doc(db, 'app_state', 'customersKyc'), { items: customersKyc });
-        await setDoc(doc(db, 'app_state', 'subAdmins'), { items: subAdmins });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, 'app_state');
-      }
-    };
-    syncToCloud();
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
 
-    const payload = {
-      schedules,
-      vouchers,
-      bookings,
-      customersKyc,
-      subAdmins,
-      siteSettings,
-      sukiAccount
-    };
-    fetch('/api/admin/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    }).catch(() => {});
+    // If change was triggered by incoming remote snapshot, don't echo it back
+    if (isSyncingFromRemote.current) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      // 1. Always sync to backend API store
+      const payload = {
+        schedules,
+        vouchers,
+        bookings,
+        customersKyc,
+        subAdmins,
+        siteSettings,
+        sukiAccount
+      };
+      fetch('/api/admin/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+
+      // 2. Only sync to Firestore if quota is NOT exhausted
+      if (!isFirestoreQuotaExhausted()) {
+        try {
+          await setDoc(doc(db, 'app_state', 'siteSettings'), siteSettings);
+          await setDoc(doc(db, 'app_state', 'schedules'), { items: schedules });
+          await setDoc(doc(db, 'app_state', 'vouchers'), { items: vouchers });
+          await setDoc(doc(db, 'app_state', 'bookings'), { items: bookings });
+          await setDoc(doc(db, 'app_state', 'customersKyc'), { items: customersKyc });
+          await setDoc(doc(db, 'app_state', 'subAdmins'), { items: subAdmins });
+        } catch (err) {
+          handleFirestoreError(err, OperationType.WRITE, 'app_state');
+        }
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, [schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount]);
 
   const [customerFilter, setCustomerFilter] = useState<'all' | 'verified' | 'pending' | 'unverified' | 'rejected'>('all');
@@ -654,24 +774,66 @@ export default function App() {
 
   // Complete Booking flow
   const handleCompleteBooking = async (bookingPayload: any) => {
+    if (!currentUser) {
+      handleOpenAuthModal('login', 'Please sign in or create an account to complete ticket purchase.');
+      return;
+    }
+    const finalPayload = {
+      ...bookingPayload,
+      userId: currentUser.id
+    };
     try {
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookingPayload)
+        body: JSON.stringify(finalPayload)
       });
       const newBooking = await res.json();
-      setBookings([newBooking, ...bookings]);
-      setActiveBooking(newBooking);
+      const bookingToAdd: Booking = newBooking?.id ? newBooking : {
+        ...finalPayload,
+        id: `bk-${Date.now()}`,
+        bookingCode: `MTTH-${Date.now().toString().slice(-6)}`,
+        status: 'confirmed',
+        createdAt: new Date().toISOString(),
+        qrCodeToken: `MTTH-QR-${Date.now()}`
+      };
+      setBookings(prev => [bookingToAdd, ...prev]);
+      setActiveBooking(bookingToAdd);
       setActiveView('confirmation');
+      const ptsEarned = bookingToAdd.sukiPointsEarned || 100;
+      setSukiAccount(prev => {
+        const updated = {
+          ...prev,
+          points: prev.points + ptsEarned,
+          completedTrips: prev.completedTrips + 1
+        };
+        if (currentUser) {
+          const updatedUser = { ...currentUser, sukiAccount: updated };
+          setCurrentUser(updatedUser);
+          try { localStorage.setItem('mtth_active_user', JSON.stringify(updatedUser)); } catch {}
+        }
+        return updated;
+      });
+      showToast(`Booking ${bookingToAdd.bookingCode} confirmed! +${ptsEarned} Suki pts`);
+    } catch {
+      const localBooking: Booking = {
+        ...finalPayload,
+        id: `bk-${Date.now()}`,
+        bookingCode: `MTTH-${Date.now().toString().slice(-6)}`,
+        status: 'confirmed',
+        createdAt: new Date().toISOString(),
+        qrCodeToken: `MTTH-QR-${Date.now()}`
+      };
+      setBookings(prev => [localBooking, ...prev]);
+      setActiveBooking(localBooking);
+      setActiveView('confirmation');
+      const ptsEarned = localBooking.sukiPointsEarned || 100;
       setSukiAccount(prev => ({
         ...prev,
-        points: prev.points + newBooking.sukiPointsEarned,
+        points: prev.points + ptsEarned,
         completedTrips: prev.completedTrips + 1
       }));
-      showToast(`Booking ${newBooking.bookingCode} confirmed! +${newBooking.sukiPointsEarned} Suki pts`);
-    } catch {
-      showToast('Booking issued in demo mode!');
+      showToast(`Booking ${localBooking.bookingCode} confirmed!`);
     }
   };
 
@@ -1011,7 +1173,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
   // Helper for modal state check to prevent obscuring action buttons
   const isAnyModalOpen = Boolean(
     aiModalOpen || profileModalOpen || notifModalOpen || vercelModalOpen ||
-    selectedKycForReview || editingCustomer || editingBooking || editingSchedule ||
+    userAuthModalOpen || selectedKycForReview || editingCustomer || editingBooking || editingSchedule ||
     editingVoucher || editingSubAdmin || showAddRouteModal || showAddPromoModal ||
     showAddOperatorModal || showAddDestinationModal || showAddCustomerModal ||
     showAddSubAdminModal || digitalTicketBooking || mobileMenuOpen
@@ -1049,9 +1211,28 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
       )}
 
       {/* ========================================================
-          VIEW: ADMIN CMS (admin.html)
+          VIEW: ADMIN CMS (admin.html) - Authentication Required
       ======================================================== */}
       {activeView === 'admin' ? (
+        !adminSession ? (
+          <AdminLoginScreen
+            onLoginSuccess={(sess) => {
+              setAdminSession(sess);
+              showToast(`Welcome back, ${sess.name} (${sess.role})`);
+            }}
+            onBackToSite={() => {
+              if (window.location.pathname.startsWith('/admin')) {
+                window.history.pushState({}, '', '/');
+              } else if (window.location.hash === '#admin') {
+                window.location.hash = '';
+              }
+              setActiveView('landing');
+            }}
+            subAdmins={subAdmins}
+            siteName={siteSettings.siteName}
+            siteSubtitle={siteSettings.siteSubtitle}
+          />
+        ) : (
         <div className="admin min-h-screen">
           <header className="admin-top">
             <div className="flex items-center gap-3">
@@ -1070,9 +1251,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap justify-end">
               <button 
-                className="bg-slate-900 hover:bg-black text-white font-extrabold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer shadow-xs transition-all hover:scale-105"
+                className="bg-slate-900 hover:bg-black text-white font-extrabold px-2.5 sm:px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border border-slate-700 cursor-pointer shadow-xs transition-all hover:scale-105"
                 onClick={() => setVercelModalOpen(true)}
                 title="Open Vercel Deployment Assistant"
               >
@@ -1080,11 +1261,30 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                   <path d="m577.3 0 577.4 1000H0z" />
                 </svg>
                 <span className="hidden sm:inline">Deploy to Vercel</span>
-                <span className="sm:hidden">Deploy</span>
+                <span className="sm:hidden text-[10px]">Deploy</span>
               </button>
-              <span className="hidden lg:inline text-xs text-slate-300 font-medium">Super Admin</span>
+
+              {/* Logged-in Admin Identity & Logout Button */}
+              <div className="flex items-center gap-1.5 sm:gap-2 bg-slate-800/90 border border-slate-700/80 px-2 sm:px-2.5 py-1 rounded-xl">
+                <div className="hidden md:flex flex-col text-right">
+                  <span className="text-xs font-bold text-teal-300 leading-tight flex items-center gap-1 justify-end">
+                    <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                    {adminSession.name || 'Mark Kenneth Ulgasan'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono leading-tight">{adminSession.email} • {adminSession.role}</span>
+                </div>
+                <button 
+                  onClick={handleAdminLogout}
+                  className="bg-rose-950/70 hover:bg-rose-900 text-rose-200 border border-rose-700/60 font-bold px-2 py-1 rounded-lg text-[11px] sm:text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                  title="Log out from Admin Console"
+                >
+                  <Lock className="w-3 h-3" />
+                  <span className="hidden sm:inline">Log Out</span>
+                </button>
+              </div>
+
               <button 
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs flex items-center gap-1 cursor-pointer"
+                className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs flex items-center gap-1 cursor-pointer"
                 onClick={() => {
                   if (window.location.pathname.startsWith('/admin')) {
                     window.history.pushState({}, '', '/');
@@ -1094,7 +1294,8 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                   setActiveView('landing');
                 }}
               >
-                <span>View Website</span>
+                <span className="hidden sm:inline">View Website</span>
+                <span className="sm:hidden">Site</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             </div>
@@ -1197,7 +1398,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                             {bookings.slice(0, 5).map((b) => (
                               <tr key={b.id}>
                                 <td>{b.bookingCode}</td>
-                                <td>{b.passengers[0]?.fullName || 'Maria Santos'}</td>
+                                <td>{b.passengers[0]?.fullName || 'Traveler'}</td>
                                 <td>{b.origin} → {b.destination}</td>
                                 <td>₱{b.totalPaid.toLocaleString()}</td>
                                 <td>
@@ -2113,7 +2314,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                             <tr key={b.id} className="hover:bg-slate-50/80 transition-colors">
                               <td className="font-mono font-bold text-xs text-slate-900">{b.bookingCode}</td>
                               <td>
-                                <div className="text-xs font-bold text-slate-900">{b.passengers[0]?.fullName || 'Maria Santos'}</div>
+                                <div className="text-xs font-bold text-slate-900">{b.passengers[0]?.fullName || 'Traveler'}</div>
                                 <div className="text-[10px] text-slate-400">{b.passengers[0]?.mobile || '+63 917...'}</div>
                               </td>
                               <td className="text-xs font-semibold">{b.origin} → {b.destination}</td>
@@ -2178,6 +2379,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
             </section>
           </main>
         </div>
+        )
       ) : activeView === 'dashboard' ? (
         /* ========================================================
             VIEW: CUSTOMER DASHBOARD / MY TRIPS (dashboard.html)
@@ -2195,169 +2397,240 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               <a onClick={() => setActiveView('landing')} style={{ cursor: 'pointer' }}>Home</a>
               <a className="active" style={{ cursor: 'pointer' }}>My Trips</a>
             </nav>
-            <a className="user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} style={{ cursor: 'pointer' }}>
-              {userProfile.avatarUrl ? (
-                <img 
-                  src={userProfile.avatarUrl} 
-                  alt="" 
-                  className="w-5 h-5 rounded-full object-cover border border-teal-400" 
-                />
-              ) : (
-                <User className="w-3.5 h-3.5" />
-              )}
-              <span>{userProfile.firstName || 'Maria'}</span>
-              {userProfile.kyc.status === 'verified' ? (
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
-                  <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
-                  KYC
-                </span>
-              ) : (
-                <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
-                  <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
-                  KYC
-                </span>
-              )}
-            </a>
+
+            {currentUser ? (
+              <div className="flex items-center gap-2 ml-auto">
+                <a className="user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} style={{ cursor: 'pointer' }}>
+                  {currentUser.userProfile?.avatarUrl ? (
+                    <img 
+                      src={currentUser.userProfile.avatarUrl} 
+                      alt="" 
+                      className="w-5 h-5 rounded-full object-cover border border-teal-400" 
+                    />
+                  ) : (
+                    <span className="w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center font-bold">
+                      {currentUser.firstName?.[0] || currentUser.fullName?.[0] || 'U'}
+                    </span>
+                  )}
+                  <span>{currentUser.firstName || currentUser.fullName}</span>
+                  {currentUser.userProfile?.kyc?.status === 'verified' ? (
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
+                      <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                      KYC
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
+                      <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
+                      KYC
+                    </span>
+                  )}
+                </a>
+                <button
+                  onClick={handleUserLogout}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 border border-slate-700 text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Log Out
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  onClick={() => handleOpenAuthModal('login')}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => handleOpenAuthModal('register')}
+                  className="px-3.5 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-xs cursor-pointer shadow-md"
+                >
+                  Create Account
+                </button>
+              </div>
+            )}
           </header>
 
-          <main className={`dash-wrap ${userDashSidebarMinimized ? 'minimized' : ''}`}>
-            <aside className={userDashSidebarMinimized ? 'minimized' : ''}>
-              <button 
-                className="sidebar-toggle-btn"
-                onClick={() => setUserDashSidebarMinimized(!userDashSidebarMinimized)}
-                title="Toggle Sidebar"
-              >
-                <span className="text-label">{userDashSidebarMinimized ? 'Expand Menu' : 'Minimize Menu'}</span>
-              </button>
-
-              <div className="dash-user cursor-pointer group" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Click to view & edit Profile & KYC">
-                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-teal-400 bg-teal-100 text-teal-800 flex items-center justify-center font-bold mx-auto mb-1.5 shadow-sm group-hover:scale-105 transition-transform">
-                  {userProfile.avatarUrl ? (
-                    <img src={userProfile.avatarUrl} alt={userProfile.fullName} className="w-full h-full object-cover" />
-                  ) : (
-                    <span>{userProfile.firstName?.[0] || 'M'}{userProfile.lastName?.[0] || 'S'}</span>
-                  )}
+          {!currentUser ? (
+            <div className="max-w-lg mx-auto py-16 px-4 text-center">
+              <div className="bg-white rounded-3xl p-8 sm:p-10 shadow-xl border border-slate-200/80 space-y-4">
+                <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-3xl flex items-center justify-center mx-auto shadow-md">
+                  <User className="w-8 h-8 text-teal-600" />
                 </div>
-                <b>{userProfile.fullName || 'Maria Santos'}</b>
-                <small className="flex items-center justify-center gap-1">
-                  {userProfile.kyc.status === 'verified' ? (
-                    <span className="text-emerald-600 font-bold flex items-center gap-0.5">
-                      <ShieldCheck className="w-3 h-3" /> KYC Verified
-                    </span>
-                  ) : (
-                    <span className="text-amber-600 font-bold flex items-center gap-0.5">
-                      <AlertCircle className="w-3 h-3" /> KYC Required
-                    </span>
-                  )}
-                  • Gold Suki
-                </small>
-              </div>
-              <a className="selected flex items-center gap-2">
-                <LayoutDashboard className="w-4 h-4" />
-                <span className="text-label">Overview</span>
-              </a>
-              <a className="flex items-center gap-2" onClick={() => showToast('All confirmed tickets shown below')}>
-                <Ticket className="w-4 h-4" />
-                <span className="text-label">My Tickets</span>
-              </a>
-              <a className="flex items-center gap-2" onClick={() => showToast('Favorite routes: CDO → Camiguin, Davao → Siargao')}>
-                <Heart className="w-4 h-4" />
-                <span className="text-label">Favorites</span>
-              </a>
-              <a className="flex items-center gap-2" onClick={() => setNotifModalOpen(true)}>
-                <Bell className="w-4 h-4" />
-                <span className="text-label">Notifications</span>
-              </a>
-              <a className="flex items-center gap-2" onClick={() => showToast('Redeem catalog: 3 active vouchers available')}>
-                <Award className="w-4 h-4" />
-                <span className="text-label">Suki Rewards</span>
-              </a>
-              <a className="flex items-center gap-2" onClick={() => setProfileModalOpen(true)}>
-                <Settings className="w-4 h-4" />
-                <span className="text-label">Settings</span>
-              </a>
-            </aside>
-
-            <section className="dash-main">
-              <div className="heading row">
-                <div>
-                  <h1>Good evening, Maria</h1>
-                  <p>Here's your travel activity at a glance.</p>
-                </div>
-                <a className="primary" onClick={() => setActiveView('landing')} style={{ cursor: 'pointer' }}>
-                  + Book a Trip
-                </a>
-              </div>
-
-              <div className="stats">
-                <div>
-                  <small>UPCOMING TRIPS</small>
-                  <b>{bookings.filter(b => b.status === 'confirmed').length}</b>
-                  <span>Next: Camiguin</span>
-                </div>
-                <div>
-                  <small>BOOKINGS</small>
-                  <b>{bookings.length + 10}</b>
-                  <span>8 completed</span>
-                </div>
-                <div>
-                  <small>SUKI POINTS</small>
-                  <b>{sukiAccount.points.toLocaleString()}</b>
-                  <span>750 to Platinum</span>
-                </div>
-                <div>
-                  <small>SAVED</small>
-                  <b>₱3,840</b>
-                  <span>Through Suki deals</span>
-                </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-head">
-                  <h2>Upcoming Trips</h2>
-                  <a onClick={() => showToast('Showing all scheduled journeys')}>View all</a>
-                </div>
-
-                {bookings.filter(b => b.status === 'confirmed').map((b) => (
-                  <article key={b.id} className="trip">
-                    <div className="trip-icon">
-                      {renderTransportIcon(b.transportType, "w-5 h-5 text-teal-700")}
-                    </div>
-                    <div>
-                      <b>{b.origin} → {b.destination}</b>
-                      <small>{b.departureTime} · {b.selectedClass} · {b.passengers.length} Pax</small>
-                      <span className="confirmed">Confirmed</span>
-                    </div>
-                    <strong>₱{b.totalPaid.toLocaleString()}</strong>
-                    <button onClick={() => setSelectedTicketCode(b.bookingCode)}>
-                      View Ticket
-                    </button>
-                  </article>
-                ))}
-              </div>
-
-              <div className="two-panels">
-                <div className="panel">
-                  <div className="panel-head">
-                    <h2>Recent Bookings</h2>
-                  </div>
-                  <p>CDO → Manila <span className="right">₱2,499 · Completed</span></p>
-                  <p>CDO → Camiguin <span className="right">₱450 · Completed</span></p>
-                  <p>Davao → General Santos <span className="right">₱650 · Completed</span></p>
-                </div>
-
-                <div className="panel reward-panel">
-                  <h2>Gold Suki</h2>
-                  <b>{sukiAccount.points.toLocaleString()} Points</b>
-                  <div className="progress"><span style={{ width: '72%' }}></span></div>
-                  <small>750 points until Platinum</small>
-                  <button onClick={() => showToast('Reward catalog opened — voucher SUKI500 redeemed!')}>
-                    Redeem Rewards
+                <h2 className="text-2xl font-black text-slate-900">Sign In to View My Trips</h2>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  Please log in or register your traveler account to view your confirmed itineraries, digital boarding passes, and Suki Rewards.
+                </p>
+                <div className="grid grid-cols-2 gap-3 pt-3">
+                  <button
+                    onClick={() => handleOpenAuthModal('login', 'Sign in to access your bookings and tickets.')}
+                    className="w-full py-3 bg-slate-900 hover:bg-black text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    onClick={() => handleOpenAuthModal('register', 'Create an account to book and manage travel.')}
+                    className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs rounded-xl shadow-md cursor-pointer transition-all"
+                  >
+                    Create Account
                   </button>
                 </div>
               </div>
-            </section>
-          </main>
+            </div>
+          ) : (
+            <main className={`dash-wrap ${userDashSidebarMinimized ? 'minimized' : ''}`}>
+              <aside className={userDashSidebarMinimized ? 'minimized' : ''}>
+                <button 
+                  className="sidebar-toggle-btn"
+                  onClick={() => setUserDashSidebarMinimized(!userDashSidebarMinimized)}
+                  title="Toggle Sidebar"
+                >
+                  <span className="text-label">{userDashSidebarMinimized ? 'Expand Menu' : 'Minimize Menu'}</span>
+                </button>
+
+                <div className="dash-user cursor-pointer group" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Click to view & edit Profile & KYC">
+                  <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-teal-400 bg-teal-100 text-teal-800 flex items-center justify-center font-bold mx-auto mb-1.5 shadow-sm group-hover:scale-105 transition-transform">
+                    {currentUser.userProfile?.avatarUrl ? (
+                      <img src={currentUser.userProfile.avatarUrl} alt={currentUser.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{currentUser.firstName?.[0] || currentUser.fullName?.[0] || 'U'}</span>
+                    )}
+                  </div>
+                  <b>{currentUser.fullName}</b>
+                  <small className="flex items-center justify-center gap-1">
+                    {currentUser.userProfile?.kyc?.status === 'verified' ? (
+                      <span className="text-emerald-600 font-bold flex items-center gap-0.5">
+                        <ShieldCheck className="w-3 h-3" /> KYC Verified
+                      </span>
+                    ) : (
+                      <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                        <AlertCircle className="w-3 h-3" /> KYC Required
+                      </span>
+                    )}
+                    • {currentUser.sukiAccount?.tier || 'Starter'} Suki
+                  </small>
+                </div>
+                <a className="selected flex items-center gap-2">
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span className="text-label">Overview</span>
+                </a>
+                <a className="flex items-center gap-2" onClick={() => showToast('All confirmed tickets shown below')}>
+                  <Ticket className="w-4 h-4" />
+                  <span className="text-label">My Tickets</span>
+                </a>
+                <a className="flex items-center gap-2" onClick={() => showToast('Favorite routes: CDO → Camiguin, Davao → Siargao')}>
+                  <Heart className="w-4 h-4" />
+                  <span className="text-label">Favorites</span>
+                </a>
+                <a className="flex items-center gap-2" onClick={() => setNotifModalOpen(true)}>
+                  <Bell className="w-4 h-4" />
+                  <span className="text-label">Notifications</span>
+                </a>
+                <a className="flex items-center gap-2" onClick={() => showToast('Redeem catalog: active vouchers available')}>
+                  <Award className="w-4 h-4" />
+                  <span className="text-label">Suki Rewards</span>
+                </a>
+                <a className="flex items-center gap-2" onClick={() => setProfileModalOpen(true)}>
+                  <Settings className="w-4 h-4" />
+                  <span className="text-label">Settings</span>
+                </a>
+              </aside>
+
+              <section className="dash-main">
+                <div className="heading row flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+                  <div>
+                    <h1 className="text-xl sm:text-2xl font-black text-slate-900">Good day, {currentUser.firstName || currentUser.fullName}</h1>
+                    <p className="text-xs text-slate-500">Here's your travel activity at a glance.</p>
+                  </div>
+                  <button 
+                    className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs shadow-md transition-all self-start sm:self-auto cursor-pointer" 
+                    onClick={() => setActiveView('landing')}
+                  >
+                    + Book a Trip
+                  </button>
+                </div>
+
+                <div className="stats">
+                  <div>
+                    <small>UPCOMING TRIPS</small>
+                    <b>{bookings.filter(b => b.userId === currentUser.id && b.status === 'confirmed').length}</b>
+                    <span>Active bookings</span>
+                  </div>
+                  <div>
+                    <small>TOTAL BOOKINGS</small>
+                    <b>{bookings.filter(b => b.userId === currentUser.id).length}</b>
+                    <span>Recorded trips</span>
+                  </div>
+                  <div>
+                    <small>SUKI POINTS</small>
+                    <b>{(currentUser.sukiAccount?.points ?? sukiAccount.points).toLocaleString()}</b>
+                    <span>Reward points</span>
+                  </div>
+                  <div>
+                    <small>ACCOUNT STATUS</small>
+                    <b>{currentUser.userProfile?.kyc?.status === 'verified' ? 'Verified' : 'Pending KYC'}</b>
+                    <span>Traveler ID</span>
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <div className="panel-head">
+                    <h2>Upcoming Trips</h2>
+                    <a onClick={() => showToast('Showing all scheduled journeys')}>View all</a>
+                  </div>
+
+                  {bookings.filter(b => b.userId === currentUser.id && b.status === 'confirmed').length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 text-xs">
+                      No upcoming trips found. Book your next journey across Mindanao!
+                    </div>
+                  ) : (
+                    bookings.filter(b => b.userId === currentUser.id && b.status === 'confirmed').map((b) => (
+                      <article key={b.id} className="trip">
+                        <div className="trip-icon">
+                          {renderTransportIcon(b.transportType, "w-5 h-5 text-teal-700")}
+                        </div>
+                        <div>
+                          <b>{b.origin} → {b.destination}</b>
+                          <small>{b.departureTime} · {b.selectedClass} · {b.passengers.length} Pax</small>
+                          <span className="confirmed">Confirmed</span>
+                        </div>
+                        <strong>₱{b.totalPaid.toLocaleString()}</strong>
+                        <button onClick={() => setSelectedTicketCode(b.bookingCode)}>
+                          View Ticket
+                        </button>
+                      </article>
+                    ))
+                  )}
+                </div>
+
+                <div className="two-panels">
+                  <div className="panel">
+                    <div className="panel-head">
+                      <h2>Recent Bookings</h2>
+                    </div>
+                    {bookings.filter(b => b.userId === currentUser.id).length === 0 ? (
+                      <p className="text-xs text-slate-400 p-2">No recent bookings recorded for this account yet.</p>
+                    ) : (
+                      bookings.filter(b => b.userId === currentUser.id).slice(0, 3).map(b => (
+                        <p key={b.id}>
+                          {b.origin} → {b.destination} <span className="right">₱{b.totalPaid.toLocaleString()} · {b.status}</span>
+                        </p>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="panel reward-panel">
+                    <h2>{currentUser.sukiAccount?.tier || 'Starter'} Suki</h2>
+                    <b>{(currentUser.sukiAccount?.points ?? sukiAccount.points).toLocaleString()} Points</b>
+                    <div className="progress"><span style={{ width: '45%' }}></span></div>
+                    <small>Earn 10% points on every trip across Mindanao</small>
+                    <button onClick={() => showToast('Reward catalog ready to redeem at checkout!')}>
+                      Redeem Rewards
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </main>
+          )}
         </div>
       ) : (
         /* ========================================================
@@ -2448,48 +2721,79 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               </div>
             </nav>
 
-            <div className="top-actions">
-              <button className="points flex items-center" onClick={() => setActiveView('dashboard')}>
-                <Award className="w-3.5 h-3.5 text-amber-400 mr-1" />
-                <div>
-                  <b>GOLD SUKI</b>
-                  <strong id="pointsValue">{sukiAccount.points.toLocaleString()}</strong> pts
+            {/* Right side actions (Sign In / Create Account / Profile / Mobile Menu) */}
+            <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+              {currentUser ? (
+                <div className="top-actions flex items-center gap-2 sm:gap-2.5">
+                  <button className="points flex items-center" onClick={() => setActiveView('dashboard')}>
+                    <Award className="w-3.5 h-3.5 text-amber-400 mr-1" />
+                    <div>
+                      <b>{(currentUser.sukiAccount?.tier || 'STARTER').toUpperCase()} SUKI</b>
+                      <strong id="pointsValue">{(currentUser.sukiAccount?.points ?? sukiAccount.points).toLocaleString()}</strong> pts
+                    </div>
+                  </button>
+                  <button className="icon-btn" aria-label="Notifications" onClick={() => setNotifModalOpen(true)}>
+                    <Bell className="w-4 h-4 text-slate-200" />
+                  </button>
+                  <button 
+                    className="profile user flex items-center gap-1.5 cursor-pointer" 
+                    onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} 
+                    title="Profile Settings & KYC Verification"
+                  >
+                    <span className="avatar overflow-hidden flex items-center justify-center border border-teal-300">
+                      {currentUser.userProfile?.avatarUrl ? (
+                        <img src={currentUser.userProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        currentUser.firstName?.[0] || currentUser.fullName?.[0] || 'U'
+                      )}
+                    </span>
+                    <span className="font-bold text-xs text-white max-w-[100px] truncate">{currentUser.firstName || currentUser.fullName}</span>
+                    {currentUser.userProfile?.kyc?.status === 'verified' ? (
+                      <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
+                        <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                        KYC
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
+                        <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
+                        KYC
+                      </span>
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                  <button
+                    onClick={handleUserLogout}
+                    className="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-rose-900/40 text-slate-300 hover:text-rose-200 border border-slate-700 text-xs font-bold cursor-pointer transition-colors"
+                    title="Sign out from account"
+                  >
+                    Log Out
+                  </button>
                 </div>
-              </button>
-              <button className="icon-btn" aria-label="Notifications" onClick={() => setNotifModalOpen(true)}>
-                <Bell className="w-4 h-4 text-slate-200" />
-              </button>
-              <button className="profile user flex items-center gap-1.5" onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); }} title="Profile Settings & KYC Verification">
-                <span className="avatar overflow-hidden flex items-center justify-center border border-teal-300">
-                  {userProfile.avatarUrl ? (
-                    <img src={userProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    userProfile.firstName?.[0] || 'M'
-                  )}
-                </span>
-                <span>{userProfile.firstName || sukiAccount.name.split(' ')[0]}</span>
-                {userProfile.kyc.status === 'verified' ? (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-400/30 flex items-center gap-0.5" title="KYC Verified">
-                    <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
-                    KYC
-                  </span>
-                ) : (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 font-bold px-1.5 py-0.5 rounded border border-amber-400/30 flex items-center gap-0.5" title="KYC Required">
-                    <AlertCircle className="w-2.5 h-2.5 text-amber-300" />
-                    KYC
-                  </span>
-                )}
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              ) : (
+                <div className="top-actions flex items-center gap-2">
+                  <button 
+                    onClick={() => handleOpenAuthModal('login')}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 cursor-pointer transition-all whitespace-nowrap"
+                  >
+                    Sign In
+                  </button>
+                  <button 
+                    onClick={() => handleOpenAuthModal('register')}
+                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-extrabold text-xs shadow-md cursor-pointer transition-all hover:scale-105 whitespace-nowrap"
+                  >
+                    Create Account
+                  </button>
+                </div>
+              )}
+
+              <button 
+                className="mobile-menu hamb ml-1" 
+                aria-label="Open menu"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <Compass className="w-5 h-5 text-white" />
               </button>
             </div>
-
-            <button 
-              className="mobile-menu hamb" 
-              aria-label="Open menu"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <Compass className="w-5 h-5 text-white" />
-            </button>
           </header>
 
           {/* Mobile Drawer Navigation Overlay */}
@@ -2511,33 +2815,71 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     </button>
                   </div>
 
-                  {/* User Profile Summary Card */}
-                  <div 
-                    onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); setMobileMenuOpen(false); }}
-                    className="bg-slate-800/80 hover:bg-slate-800 p-3 rounded-2xl border border-slate-700/80 flex items-center gap-3 cursor-pointer transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center font-bold text-white overflow-hidden shrink-0 border border-teal-400">
-                      {userProfile.avatarUrl ? (
-                        <img src={userProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        userProfile.firstName?.[0] || 'M'
-                      )}
+                  {/* User Profile Summary Card or Guest Prompt */}
+                  {currentUser ? (
+                    <div 
+                      onClick={() => { setProfileModalInitialTab('info'); setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                      className="bg-slate-800/80 hover:bg-slate-800 p-3 rounded-2xl border border-slate-700/80 flex items-center justify-between gap-3 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center font-bold text-white overflow-hidden shrink-0 border border-teal-400">
+                          {currentUser.userProfile?.avatarUrl ? (
+                            <img src={currentUser.userProfile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            currentUser.firstName?.[0] || currentUser.fullName?.[0] || 'U'
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-white truncate">{currentUser.fullName}</div>
+                          <div className="text-[11px] text-teal-300 font-semibold flex items-center gap-1 mt-0.5">
+                            {currentUser.userProfile?.kyc?.status === 'verified' ? (
+                              <span className="text-emerald-400 flex items-center gap-0.5 font-bold">
+                                <ShieldCheck className="w-3 h-3" /> Verified KYC
+                              </span>
+                            ) : (
+                              <span className="text-amber-400 flex items-center gap-0.5 font-bold">
+                                <AlertCircle className="w-3 h-3" /> KYC Required
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMobileMenuOpen(false);
+                          handleUserLogout();
+                        }}
+                        className="px-2 py-1 bg-slate-700 hover:bg-rose-900 text-slate-200 text-[10px] font-bold rounded-lg shrink-0"
+                      >
+                        Sign Out
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm text-white truncate">{userProfile.fullName || 'Maria Santos'}</div>
-                      <div className="text-[11px] text-teal-300 font-semibold flex items-center gap-1 mt-0.5">
-                        {userProfile.kyc.status === 'verified' ? (
-                          <span className="text-emerald-400 flex items-center gap-0.5 font-bold">
-                            <ShieldCheck className="w-3 h-3" /> Verified KYC
-                          </span>
-                        ) : (
-                          <span className="text-amber-400 flex items-center gap-0.5 font-bold">
-                            <AlertCircle className="w-3 h-3" /> KYC Required
-                          </span>
-                        )}
+                  ) : (
+                    <div className="bg-slate-800/90 p-4 rounded-2xl border border-slate-700 space-y-3">
+                      <div>
+                        <div className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                          <User className="w-4 h-4 text-teal-400" />
+                          <span>Traveler Account</span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">Sign in to purchase tickets, track journeys, and earn Suki Points.</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => { setMobileMenuOpen(false); handleOpenAuthModal('login'); }}
+                          className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-bold text-xs text-center cursor-pointer"
+                        >
+                          Sign In
+                        </button>
+                        <button
+                          onClick={() => { setMobileMenuOpen(false); handleOpenAuthModal('register'); }}
+                          className="w-full py-2 bg-teal-500 hover:bg-teal-400 rounded-xl text-slate-950 font-extrabold text-xs text-center cursor-pointer"
+                        >
+                          Register
+                        </button>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Mobile Quick Navigation */}
                   <div className="space-y-1.5">
@@ -2564,14 +2906,32 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                       <span>Notifications</span>
                     </button>
                     <button 
-                      onClick={() => { setProfileModalInitialTab('suki'); setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                      onClick={() => { 
+                        if (!currentUser) {
+                          setMobileMenuOpen(false);
+                          handleOpenAuthModal('login', 'Sign in to access your Suki Rewards wallet.');
+                        } else {
+                          setProfileModalInitialTab('suki'); 
+                          setProfileModalOpen(true); 
+                          setMobileMenuOpen(false); 
+                        }
+                      }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-slate-200 hover:bg-slate-800 text-left transition-colors cursor-pointer"
                     >
                       <Award className="w-4 h-4 text-amber-400" />
-                      <span>Suki Rewards ({sukiAccount.points} pts)</span>
+                      <span>Suki Rewards ({(currentUser?.sukiAccount?.points ?? sukiAccount.points)} pts)</span>
                     </button>
                     <button 
-                      onClick={() => { setProfileModalInitialTab('kyc'); setProfileModalOpen(true); setMobileMenuOpen(false); }}
+                      onClick={() => { 
+                        if (!currentUser) {
+                          setMobileMenuOpen(false);
+                          handleOpenAuthModal('login', 'Sign in to submit your Identity Verification (KYC).');
+                        } else {
+                          setProfileModalInitialTab('kyc'); 
+                          setProfileModalOpen(true); 
+                          setMobileMenuOpen(false); 
+                        }
+                      }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-slate-200 hover:bg-slate-800 text-left transition-colors cursor-pointer"
                     >
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -3058,6 +3418,11 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 passengers: passengers
               }}
               onSelectSchedule={(sch) => {
+                if (!currentUser) {
+                  setPendingScheduleToBook(sch);
+                  handleOpenAuthModal('login', 'Please sign in or create an account before you can purchase tickets.');
+                  return;
+                }
                 setSelectedSchedule(sch);
                 setActiveView('checkout');
               }}
@@ -3073,6 +3438,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               sukiAccount={sukiAccount}
               vouchers={vouchers}
               userProfile={userProfile}
+              currentUser={currentUser}
+              isLoggedIn={!!currentUser}
+              onRequireLogin={() => handleOpenAuthModal('login', 'Please log in or register before completing your purchase.')}
               onOpenKyc={() => {
                 setProfileModalInitialTab('kyc');
                 setProfileModalOpen(true);
@@ -3736,8 +4104,20 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
           onClose={() => setProfileModalOpen(false)} 
           onUpdateProfile={handleUpdateProfile}
           onQuickVerifyKyc={handleQuickVerifyKyc}
+          onLogout={handleUserLogout}
         />
       )}
+
+      {/* Traveler Login & Registration Modal */}
+      <UserAuthModal
+        isOpen={userAuthModalOpen}
+        initialMode={userAuthMode}
+        message={userAuthMessage}
+        onClose={() => setUserAuthModalOpen(false)}
+        onLoginSuccess={handleUserLoginSuccess}
+        registeredUsers={registeredUsers}
+        onSyncRegisteredUsers={(users) => setRegisteredUsers(users)}
+      />
 
       {/* Notifications Modal */}
       {notifModalOpen && (
