@@ -2937,20 +2937,6 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                       <span>Identity Verification (KYC)</span>
                     </button>
                   </div>
-
-                  {/* Admin Console Switcher */}
-                  <div className="pt-3 border-t border-slate-800">
-                    <button 
-                      onClick={() => { setActiveView('admin'); setMobileMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-600 hover:to-emerald-600 text-white font-extrabold text-xs shadow-lg transition-all cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-amber-300" />
-                        <span>Admin CMS Console</span>
-                      </div>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
                 </div>
 
                 <div className="text-center pt-4 border-t border-slate-800 text-[10px] text-slate-400">

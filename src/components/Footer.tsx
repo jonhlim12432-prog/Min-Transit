@@ -68,7 +68,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab, logoUrl, onOpenVer
             <h4 className="font-extrabold text-sm text-orange-400 uppercase tracking-wider">Partners & Help</h4>
             <ul className="space-y-2 text-xs text-slate-300 font-semibold">
               <li><button onClick={() => setActiveTab('operator')} className="hover:text-white">Operator Portal</button></li>
-              <li><button onClick={() => setActiveTab('admin')} className="hover:text-white">Admin Dashboard</button></li>
               <li><button onClick={() => setActiveTab('help')} className="hover:text-white">Help Center & FAQ</button></li>
               {onOpenVercelDeploy && (
                 <li>
