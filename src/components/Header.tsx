@@ -38,7 +38,6 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'travel-guides', label: 'Travel Guide', icon: BookOpen },
     { id: 'my-trips', label: 'My Trips', icon: Ticket },
     { id: 'planner', label: 'Trip Planner', icon: Compass },
-    { id: 'operator', label: 'Operator Portal', icon: Bus },
     { id: 'help', label: 'Help & FAQ', icon: HelpCircle },
   ];
 

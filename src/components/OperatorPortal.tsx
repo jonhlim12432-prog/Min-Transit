@@ -60,7 +60,7 @@ export const OperatorPortal: React.FC<OperatorPortalProps> = ({ operators }) => 
             </div>
 
             <button
-              onClick={() => alert(`Opening operator schedule control center for ${op.name}`)}
+              onClick={() => {}}
               className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition-colors shadow"
             >
               Manage Schedules & Fleet

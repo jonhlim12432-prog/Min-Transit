@@ -142,7 +142,7 @@ app.get('/api/operators', (_req: Request, res: Response) => {
 
 app.get('/api/schedules', (req: Request, res: Response) => {
   const { origin, destination, transportType } = req.query;
-  let schedules = [...MOCK_SCHEDULES];
+  let schedules = [...schedulesStore];
 
   if (origin && typeof origin === 'string') {
     schedules = schedules.filter(s => s.origin.toLowerCase().includes(origin.toLowerCase()));
@@ -300,9 +300,12 @@ app.post('/api/ai/recommend', async (req: Request, res: Response) => {
   }
 });
 
+let serverlessStateVersion = Date.now();
+
 // Admin & Cross-Device State Sync API
 app.get('/api/admin/state', (_req: Request, res: Response) => {
   res.json({
+    version: serverlessStateVersion,
     schedules: schedulesStore,
     vouchers: vouchersStore,
     bookings: bookingsStore,
@@ -311,6 +314,22 @@ app.get('/api/admin/state', (_req: Request, res: Response) => {
     siteSettings: siteSettingsStore,
     sukiAccount: sukiStore
   });
+});
+
+app.get('/api/admin/state/version', (_req: Request, res: Response) => {
+  res.json({
+    version: serverlessStateVersion,
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post('/api/admin/settings', (req: Request, res: Response) => {
+  const newSettings = req.body;
+  if (newSettings && typeof newSettings === 'object') {
+    siteSettingsStore = { ...siteSettingsStore, ...newSettings };
+    serverlessStateVersion = Date.now();
+  }
+  res.json({ success: true, version: serverlessStateVersion, siteSettings: siteSettingsStore });
 });
 
 app.post('/api/admin/state', (req: Request, res: Response) => {
@@ -322,7 +341,8 @@ app.post('/api/admin/state', (req: Request, res: Response) => {
   if (subAdmins) subAdminsStore = subAdmins;
   if (siteSettings) siteSettingsStore = siteSettings;
   if (sukiAccount) sukiStore = sukiAccount;
-  res.json({ success: true });
+  serverlessStateVersion = Date.now();
+  res.json({ success: true, version: serverlessStateVersion });
 });
 
 app.get('/api/admin/metrics', (_req: Request, res: Response) => {

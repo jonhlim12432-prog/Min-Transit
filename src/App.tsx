@@ -495,144 +495,223 @@ export default function App() {
   // Real-time Cloud Firestore & Cross-Device Synchronization with Loop Prevention & Quota Protection
   const isSyncingFromRemote = React.useRef(false);
   const isInitialMount = React.useRef(true);
+  const lastSyncedVersion = React.useRef<number>(0);
 
-  useEffect(() => {
-    let unsubSettings: (() => void) | null = null;
-    let unsubSchedules: (() => void) | null = null;
-    let unsubVouchers: (() => void) | null = null;
-    let unsubBookings: (() => void) | null = null;
-    let unsubKyc: (() => void) | null = null;
-    let unsubSubAdmins: (() => void) | null = null;
+  // Synchronous State References for instant access during saves
+  const siteSettingsRef = React.useRef(siteSettings);
+  siteSettingsRef.current = siteSettings;
+  const schedulesRef = React.useRef(schedules);
+  schedulesRef.current = schedules;
+  const vouchersRef = React.useRef(vouchers);
+  vouchersRef.current = vouchers;
+  const bookingsRef = React.useRef(bookings);
+  bookingsRef.current = bookings;
+  const customersKycRef = React.useRef(customersKyc);
+  customersKycRef.current = customersKyc;
+  const subAdminsRef = React.useRef(subAdmins);
+  subAdminsRef.current = subAdmins;
+  const sukiAccountRef = React.useRef(sukiAccount);
+  sukiAccountRef.current = sukiAccount;
 
-    // Only subscribe to Firestore listeners if quota is not exhausted
-    if (!isFirestoreQuotaExhausted()) {
-      try {
-        unsubSettings = onSnapshot(doc(db, 'app_state', 'siteSettings'), (snap) => {
-          if (snap.exists() && snap.data()) {
-            isSyncingFromRemote.current = true;
-            setSiteSettings(snap.data() as SiteSettings);
-            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
-          }
-        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/siteSettings'));
+  // Immediate State Push to Backend with version tracking and Firestore sync
+  const syncStateToServer = React.useCallback(async (overrides?: {
+    siteSettings?: SiteSettings;
+    schedules?: Schedule[];
+    vouchers?: Voucher[];
+    bookings?: Booking[];
+    customersKyc?: CustomerKycRecord[];
+    subAdmins?: SubAdmin[];
+    sukiAccount?: SukiAccount;
+  }) => {
+    const activeSiteSettings = overrides?.siteSettings ?? siteSettingsRef.current;
+    const activeSchedules = overrides?.schedules ?? schedulesRef.current;
+    const activeVouchers = overrides?.vouchers ?? vouchersRef.current;
+    const activeBookings = overrides?.bookings ?? bookingsRef.current;
+    const activeKyc = overrides?.customersKyc ?? customersKycRef.current;
+    const activeSubAdmins = overrides?.subAdmins ?? subAdminsRef.current;
+    const activeSuki = overrides?.sukiAccount ?? sukiAccountRef.current;
 
-        unsubSchedules = onSnapshot(doc(db, 'app_state', 'schedules'), (snap) => {
-          if (snap.exists() && snap.data()?.items) {
-            isSyncingFromRemote.current = true;
-            setSchedules(snap.data()?.items);
-            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
-          }
-        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/schedules'));
+    const payload = {
+      schedules: activeSchedules,
+      vouchers: activeVouchers,
+      bookings: activeBookings,
+      customersKyc: activeKyc,
+      subAdmins: activeSubAdmins,
+      siteSettings: activeSiteSettings,
+      sukiAccount: activeSuki
+    };
 
-        unsubVouchers = onSnapshot(doc(db, 'app_state', 'vouchers'), (snap) => {
-          if (snap.exists() && snap.data()?.items) {
-            isSyncingFromRemote.current = true;
-            setVouchers(snap.data()?.items);
-            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
-          }
-        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/vouchers'));
-
-        unsubBookings = onSnapshot(doc(db, 'app_state', 'bookings'), (snap) => {
-          if (snap.exists() && snap.data()?.items) {
-            isSyncingFromRemote.current = true;
-            setBookings(snap.data()?.items);
-            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
-          }
-        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/bookings'));
-
-        unsubKyc = onSnapshot(doc(db, 'app_state', 'customersKyc'), (snap) => {
-          if (snap.exists() && snap.data()?.items) {
-            isSyncingFromRemote.current = true;
-            setCustomersKyc(snap.data()?.items);
-            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
-          }
-        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/customersKyc'));
-
-        unsubSubAdmins = onSnapshot(doc(db, 'app_state', 'subAdmins'), (snap) => {
-          if (snap.exists() && snap.data()?.items) {
-            isSyncingFromRemote.current = true;
-            setSubAdmins(snap.data()?.items);
-            setTimeout(() => { isSyncingFromRemote.current = false; }, 500);
-          }
-        }, (err) => handleFirestoreError(err, OperationType.GET, 'app_state/subAdmins'));
-      } catch (e) {
-        console.warn('Firestore subscription notice:', e);
+    try {
+      const res = await fetch('/api/admin/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.version) {
+          lastSyncedVersion.current = data.version;
+        }
       }
+    } catch (e) {
+      console.warn('Sync to backend API failed:', e);
     }
 
-    // Initial sync fetch fallback via local Express server state
-    fetch('/api/admin/state')
-      .then(res => res.json())
-      .then(data => {
-        isSyncingFromRemote.current = true;
-        if (data.schedules) setSchedules(data.schedules);
-        if (data.vouchers) setVouchers(data.vouchers);
-        if (data.bookings) setBookings(data.bookings);
-        if (data.customersKyc) setCustomersKyc(data.customersKyc);
-        if (data.subAdmins) setSubAdmins(data.subAdmins);
-        if (data.siteSettings) setSiteSettings(data.siteSettings);
-        if (data.sukiAccount) setSukiAccount(data.sukiAccount);
-        setTimeout(() => {
-          isSyncingFromRemote.current = false;
-        }, 1000);
-      })
-      .catch(() => {});
+    // Secondary Firestore sync if quota is not exhausted
+    if (!isFirestoreQuotaExhausted()) {
+      try {
+        await setDoc(doc(db, 'app_state', 'siteSettings'), activeSiteSettings);
+        await setDoc(doc(db, 'app_state', 'schedules'), { items: activeSchedules });
+        await setDoc(doc(db, 'app_state', 'vouchers'), { items: activeVouchers });
+        await setDoc(doc(db, 'app_state', 'bookings'), { items: activeBookings });
+        await setDoc(doc(db, 'app_state', 'customersKyc'), { items: activeKyc });
+        await setDoc(doc(db, 'app_state', 'subAdmins'), { items: activeSubAdmins });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'app_state');
+      }
+    }
+  }, []);
+
+  // Real-Time Cross-Device Receiver (SSE Stream + Polling Fallback + Lifecycle listeners)
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let isMounted = true;
+    let reconnectTimeout: any = null;
+
+    const applyRemoteState = (data: any, version?: number) => {
+      if (!data) return;
+      if (version && version <= lastSyncedVersion.current) return;
+      if (version) lastSyncedVersion.current = version;
+
+      isSyncingFromRemote.current = true;
+      if (data.siteSettings) {
+        setSiteSettings(data.siteSettings);
+        try { localStorage.setItem('mtth_site_settings', JSON.stringify(data.siteSettings)); } catch {}
+      }
+      if (data.schedules && Array.isArray(data.schedules)) {
+        setSchedules(data.schedules);
+        try { localStorage.setItem('mtth_schedules', JSON.stringify(data.schedules)); } catch {}
+      }
+      if (data.vouchers && Array.isArray(data.vouchers)) {
+        setVouchers(data.vouchers);
+        try { localStorage.setItem('mtth_vouchers', JSON.stringify(data.vouchers)); } catch {}
+      }
+      if (data.bookings && Array.isArray(data.bookings)) {
+        setBookings(data.bookings);
+        try { localStorage.setItem('mtth_bookings', JSON.stringify(data.bookings)); } catch {}
+      }
+      if (data.customersKyc && Array.isArray(data.customersKyc)) {
+        setCustomersKyc(data.customersKyc);
+        try { localStorage.setItem('mtth_customers_kyc', JSON.stringify(data.customersKyc)); } catch {}
+      }
+      if (data.subAdmins && Array.isArray(data.subAdmins)) {
+        setSubAdmins(data.subAdmins);
+        try { localStorage.setItem('mtth_subadmins', JSON.stringify(data.subAdmins)); } catch {}
+      }
+      if (data.sukiAccount) {
+        setSukiAccount(data.sukiAccount);
+      }
+      setTimeout(() => {
+        isSyncingFromRemote.current = false;
+      }, 350);
+    };
+
+    const fetchLatestState = async () => {
+      try {
+        const res = await fetch('/api/admin/state');
+        if (res.ok) {
+          const data = await res.json();
+          applyRemoteState(data, data.version);
+        }
+      } catch {}
+    };
+
+    // Immediate initial state fetch
+    fetchLatestState();
+
+    // Establish Server-Sent Events (SSE) stream for live updates across all devices
+    const connectSSE = () => {
+      try {
+        eventSource = new EventSource('/api/admin/state/stream');
+
+        eventSource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload && payload.data) {
+              applyRemoteState(payload.data, payload.version);
+            }
+          } catch (e) {
+            console.warn('Error parsing SSE message:', e);
+          }
+        };
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          if (isMounted) {
+            reconnectTimeout = setTimeout(connectSSE, 3500);
+          }
+        };
+      } catch {
+        if (isMounted) {
+          reconnectTimeout = setTimeout(connectSSE, 4000);
+        }
+      }
+    };
+
+    connectSSE();
+
+    // High-frequency polling fallback (every 2.5s) to guarantee instant sync on mobile devices/tabs
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/admin/state/version');
+        if (res.ok) {
+          const { version } = await res.json();
+          if (version && version > lastSyncedVersion.current) {
+            fetchLatestState();
+          }
+        }
+      } catch {}
+    }, 2500);
+
+    // Sync immediately when mobile device is unlocked or tab is switched into focus
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchLatestState();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
 
     return () => {
-      if (unsubSettings) unsubSettings();
-      if (unsubSchedules) unsubSchedules();
-      if (unsubVouchers) unsubVouchers();
-      if (unsubBookings) unsubBookings();
-      if (unsubKyc) unsubKyc();
-      if (unsubSubAdmins) unsubSubAdmins();
+      isMounted = false;
+      if (eventSource) eventSource.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(pollInterval);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
     };
   }, []);
 
-  // Save changes to backend & Firestore (with loop suppression, debouncing & quota safety)
+  // Debounced auto-save for typing in form inputs (e.g., site settings text fields)
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
-    // If change was triggered by incoming remote snapshot, don't echo it back
     if (isSyncingFromRemote.current) {
       return;
     }
 
-    const timer = setTimeout(async () => {
-      // 1. Always sync to backend API store
-      const payload = {
-        schedules,
-        vouchers,
-        bookings,
-        customersKyc,
-        subAdmins,
-        siteSettings,
-        sukiAccount
-      };
-      fetch('/api/admin/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
-
-      // 2. Only sync to Firestore if quota is NOT exhausted
-      if (!isFirestoreQuotaExhausted()) {
-        try {
-          await setDoc(doc(db, 'app_state', 'siteSettings'), siteSettings);
-          await setDoc(doc(db, 'app_state', 'schedules'), { items: schedules });
-          await setDoc(doc(db, 'app_state', 'vouchers'), { items: vouchers });
-          await setDoc(doc(db, 'app_state', 'bookings'), { items: bookings });
-          await setDoc(doc(db, 'app_state', 'customersKyc'), { items: customersKyc });
-          await setDoc(doc(db, 'app_state', 'subAdmins'), { items: subAdmins });
-        } catch (err) {
-          handleFirestoreError(err, OperationType.WRITE, 'app_state');
-        }
-      }
-    }, 1500);
+    const timer = setTimeout(() => {
+      syncStateToServer();
+    }, 400);
 
     return () => clearTimeout(timer);
-  }, [schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount]);
+  }, [schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount, syncStateToServer]);
 
   const [customerFilter, setCustomerFilter] = useState<'all' | 'verified' | 'pending' | 'unverified' | 'rejected'>('all');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -866,22 +945,24 @@ const SAMPLE_LOGO_1 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 
 const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 56'%3E%3Cdefs%3E%3ClinearGradient id='lg2' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%230284c7'/%3E%3Cstop offset='100%25' stop-color='%2310b981'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='26' cy='28' r='18' fill='none' stroke='url(%23lg2)' stroke-width='3.5'/%3E%3Cpolygon points='26,16 34,34 18,34' fill='%230284c7'/%3E%3Ctext x='54' y='33' font-family='system-ui, -apple-system, sans-serif' font-size='20' font-weight='800' fill='%230f172a'%3EMindanao%3C/text%3E%3Ctext x='152' y='33' font-family='system-ui, -apple-system, sans-serif' font-size='15' font-weight='700' fill='%2310b981'%3ETransit%3C/text%3E%3Ctext x='55' y='46' font-family='system-ui, -apple-system, sans-serif' font-size='8' font-weight='700' letter-spacing='1' fill='%2364748b'%3EOFFICIAL TICKET HUB%3C/text%3E%3C/svg%3E";
 
-  // Admin: Handle Logo File Upload
+  // Admin: Handle Logo File Upload with instant multi-device broadcast
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
-          setSiteSettings(prev => ({ ...prev, logoUrl: reader.result as string }));
-          showToast('Full logo applied (frame removed) & Favicon updated automatically!');
+          const updated = { ...siteSettings, logoUrl: reader.result as string };
+          setSiteSettings(updated);
+          syncStateToServer({ siteSettings: updated });
+          showToast('Full logo applied & broadcasted live across all devices!');
         }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  // Admin: Create Sub-Admin Account
+  // Admin: Create Sub-Admin Account with instant multi-device broadcast
   const handleCreateSubAdmin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubAdminForm.name || !newSubAdminForm.email) return;
@@ -895,13 +976,15 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
       createdAt: new Date().toISOString().slice(0, 10),
       lastActive: 'Just now'
     };
-    setSubAdmins([newAdmin, ...subAdmins]);
+    const updated = [newAdmin, ...subAdmins];
+    setSubAdmins(updated);
+    syncStateToServer({ subAdmins: updated });
     setShowAddSubAdminModal(false);
     setNewSubAdminForm({ name: '', email: '', role: 'Operations Admin', password: '' });
     showToast(`Sub-admin account created for ${newAdmin.name}!`);
   };
 
-  // Admin: Create Route
+  // Admin: Create Route with instant multi-device broadcast
   const handleCreateRoute = (e: React.FormEvent) => {
     e.preventDefault();
     const newSch: Schedule = {
@@ -928,12 +1011,14 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
       baggageAllowance: '15kg',
       classType: 'Standard'
     };
-    setSchedules([newSch, ...schedules]);
+    const updated = [newSch, ...schedules];
+    setSchedules(updated);
+    syncStateToServer({ schedules: updated });
     setShowAddRouteModal(false);
-    showToast(`New route added: ${newSch.origin} → ${newSch.destination}`);
+    showToast(`New route added & synced: ${newSch.origin} → ${newSch.destination}`);
   };
 
-  // Admin: Create Promo
+  // Admin: Create Promo with instant multi-device broadcast
   const handleCreatePromo = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPromoForm.code) return;
@@ -949,7 +1034,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
       eligibleTransport: 'all',
       claimed: true
     };
-    setVouchers([newVoucher, ...vouchers]);
+    const updated = [newVoucher, ...vouchers];
+    setVouchers(updated);
+    syncStateToServer({ vouchers: updated });
     setShowAddPromoModal(false);
     showToast(`Promo voucher ${newVoucher.code} created and published!`);
   };
@@ -970,7 +1057,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
       submittedAt: newCustomerForm.kycStatus === 'verified' ? new Date().toISOString().slice(0, 10) : 'Pending Submission',
       completedBookings: 0
     };
-    setCustomersKyc([newCust, ...customersKyc]);
+    const updated = [newCust, ...customersKyc];
+    setCustomersKyc(updated);
+    syncStateToServer({ customersKyc: updated });
     setShowAddCustomerModal(false);
     setNewCustomerForm({
       name: '',
@@ -984,9 +1073,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
     showToast(`Customer account created for ${newCust.name}!`);
   };
 
-  // Admin KYC Actions
+  // Admin KYC Actions with instant multi-device broadcast
   const handleApproveCustomerKyc = (customerId: string) => {
-    setCustomersKyc(prev => prev.map(c => {
+    const updatedKyc = customersKyc.map(c => {
       if (c.id === customerId) {
         if (c.email === userProfile.email) {
           setUserProfile(up => ({
@@ -999,15 +1088,17 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
             }
           }));
         }
-        return { ...c, kycStatus: 'verified', submittedAt: new Date().toISOString().slice(0, 10) };
+        return { ...c, kycStatus: 'verified' as const, submittedAt: new Date().toISOString().slice(0, 10) };
       }
       return c;
-    }));
+    });
+    setCustomersKyc(updatedKyc);
+    syncStateToServer({ customersKyc: updatedKyc });
     showToast('Customer KYC approved & account verified!');
   };
 
   const handleRejectCustomerKyc = (customerId: string, reason: string) => {
-    setCustomersKyc(prev => prev.map(c => {
+    const updatedKyc = customersKyc.map(c => {
       if (c.id === customerId) {
         if (c.email === userProfile.email) {
           setUserProfile(up => ({
@@ -1019,15 +1110,17 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
             }
           }));
         }
-        return { ...c, kycStatus: 'rejected' };
+        return { ...c, kycStatus: 'rejected' as const };
       }
       return c;
-    }));
+    });
+    setCustomersKyc(updatedKyc);
+    syncStateToServer({ customersKyc: updatedKyc });
     showToast(`Customer KYC rejected: ${reason}`);
   };
 
   const handleResetCustomerKyc = (customerId: string) => {
-    setCustomersKyc(prev => prev.map(c => {
+    const updatedKyc = customersKyc.map(c => {
       if (c.id === customerId) {
         if (c.email === userProfile.email) {
           setUserProfile(up => ({
@@ -1038,15 +1131,19 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
             }
           }));
         }
-        return { ...c, kycStatus: 'unverified' };
+        return { ...c, kycStatus: 'unverified' as const };
       }
       return c;
-    }));
+    });
+    setCustomersKyc(updatedKyc);
+    syncStateToServer({ customersKyc: updatedKyc });
     showToast('Customer KYC status reset to Unverified');
   };
 
   const handleSaveCustomer = (updated: CustomerKycRecord) => {
-    setCustomersKyc(prev => prev.map(c => c.id === updated.id ? updated : c));
+    const updatedKyc = customersKyc.map(c => c.id === updated.id ? updated : c);
+    setCustomersKyc(updatedKyc);
+    syncStateToServer({ customersKyc: updatedKyc });
     if (updated.email === userProfile.email) {
       setUserProfile(up => ({
         ...up,
@@ -1065,81 +1162,111 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
   };
 
   const handleDeleteCustomer = (customerId: string) => {
-    setCustomersKyc(prev => prev.filter(c => c.id !== customerId));
+    const updatedKyc = customersKyc.filter(c => c.id !== customerId);
+    setCustomersKyc(updatedKyc);
+    syncStateToServer({ customersKyc: updatedKyc });
     showToast('Customer account removed');
   };
 
-  // Admin Booking Actions
+  // Admin Booking Actions with instant multi-device broadcast
   const handleSaveBooking = (updated: Booking) => {
-    setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
+    const updatedBookings = bookings.map(b => b.id === updated.id ? updated : b);
+    setBookings(updatedBookings);
+    syncStateToServer({ bookings: updatedBookings });
     showToast(`Booking ${updated.bookingCode} updated!`);
   };
 
   const handleDeleteBooking = (bookingId: string) => {
-    setBookings(prev => prev.filter(b => b.id !== bookingId));
+    const updatedBookings = bookings.filter(b => b.id !== bookingId);
+    setBookings(updatedBookings);
+    syncStateToServer({ bookings: updatedBookings });
     showToast('Booking deleted from ledger');
   };
 
   const handleRefundBooking = (bookingId: string) => {
-    setBookings(prev => prev.map(b => {
+    const updatedBookings = bookings.map(b => {
       if (b.id === bookingId) {
         return {
           ...b,
-          status: 'cancelled',
-          refundStatus: 'completed',
+          status: 'cancelled' as const,
+          refundStatus: 'completed' as const,
           refundAmount: b.totalPaid
         };
       }
       return b;
-    }));
+    });
+    setBookings(updatedBookings);
+    syncStateToServer({ bookings: updatedBookings });
     if (refundCount > 0) setRefundCount(prev => prev - 1);
     showToast('Booking refunded and cancelled successfully!');
   };
 
-  // Admin Schedule Actions
+  // Admin Schedule Actions with instant multi-device broadcast
   const handleSaveSchedule = (updated: Schedule) => {
-    setSchedules(prev => prev.map(s => s.id === updated.id ? updated : s));
-    showToast(`Route ${updated.origin} → ${updated.destination} updated!`);
+    const updatedSchedules = schedules.map(s => s.id === updated.id ? updated : s);
+    setSchedules(updatedSchedules);
+    syncStateToServer({ schedules: updatedSchedules });
+    showToast(`Route ${updated.origin} → ${updated.destination} updated & live!`);
   };
 
   const handleDeleteSchedule = (scheduleId: string) => {
-    setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+    const updatedSchedules = schedules.filter(s => s.id !== scheduleId);
+    setSchedules(updatedSchedules);
+    syncStateToServer({ schedules: updatedSchedules });
     showToast('Route schedule deleted');
   };
 
-  // Admin Promo Voucher Actions
+  // Admin Promo Voucher Actions with instant multi-device broadcast
   const handleSaveVoucher = (updated: Voucher) => {
-    setVouchers(prev => prev.map(v => v.id === updated.id ? updated : v));
+    const updatedVouchers = vouchers.map(v => v.id === updated.id ? updated : v);
+    setVouchers(updatedVouchers);
+    syncStateToServer({ vouchers: updatedVouchers });
     showToast(`Promo voucher ${updated.code} updated!`);
   };
 
   const handleToggleVoucher = (voucherId: string) => {
-    setVouchers(prev => prev.map(v => v.id === voucherId ? { ...v, claimed: !v.claimed } : v));
+    const updatedVouchers = vouchers.map(v => v.id === voucherId ? { ...v, claimed: !v.claimed } : v);
+    setVouchers(updatedVouchers);
+    syncStateToServer({ vouchers: updatedVouchers });
     showToast('Promo voucher active state toggled');
   };
 
   const handleDeleteVoucher = (voucherId: string) => {
-    setVouchers(prev => prev.filter(v => v.id !== voucherId));
+    const updatedVouchers = vouchers.filter(v => v.id !== voucherId);
+    setVouchers(updatedVouchers);
+    syncStateToServer({ vouchers: updatedVouchers });
     showToast('Promo voucher removed');
   };
 
-  // Admin Sub-Admin Actions
+  // Admin Sub-Admin Actions with instant multi-device broadcast
   const handleSaveSubAdmin = (updated: SubAdmin) => {
-    setSubAdmins(prev => prev.map(a => a.id === updated.id ? updated : a));
+    const updatedAdmins = subAdmins.map(a => a.id === updated.id ? updated : a);
+    setSubAdmins(updatedAdmins);
+    syncStateToServer({ subAdmins: updatedAdmins });
     showToast(`Sub-admin ${updated.name} updated!`);
   };
 
   const handleDeleteSubAdmin = (adminId: string) => {
-    setSubAdmins(prev => prev.filter(a => a.id !== adminId));
+    const updatedAdmins = subAdmins.filter(a => a.id !== adminId);
+    setSubAdmins(updatedAdmins);
+    syncStateToServer({ subAdmins: updatedAdmins });
     showToast('Sub-admin account removed');
   };
 
   const handleToggleSubAdmin = (adminId: string) => {
-    setSubAdmins(prev => prev.map(a => a.id === adminId ? {
+    const updatedAdmins = subAdmins.map(a => a.id === adminId ? {
       ...a,
-      status: a.status === 'Active' ? 'Suspended' : 'Active'
-    } : a));
+      status: (a.status === 'Active' ? 'Suspended' : 'Active') as 'Active' | 'Suspended'
+    } : a);
+    setSubAdmins(updatedAdmins);
+    syncStateToServer({ subAdmins: updatedAdmins });
     showToast('Sub-admin status updated');
+  };
+
+  const handleSaveSettings = async () => {
+    showToast('Saving site settings across all devices...');
+    await syncStateToServer({ siteSettings });
+    showToast('Site settings updated & broadcasted live to all devices!');
   };
 
   // Dynamic Logo renderer: Full logo with NO frame/gradient/box when uploaded; Default brand emblem when empty
@@ -1541,8 +1668,10 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                             type="button"
                             className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-xl font-bold transition-colors cursor-pointer"
                             onClick={() => {
-                              setSiteSettings(prev => ({ ...prev, logoUrl: SAMPLE_LOGO_1 }));
-                              showToast('Applied sample full logo & synced favicon!');
+                              const updated = { ...siteSettings, logoUrl: SAMPLE_LOGO_1 };
+                              setSiteSettings(updated);
+                              syncStateToServer({ siteSettings: updated });
+                              showToast('Applied sample full logo & synced across all devices!');
                             }}
                           >
                             Sample 1: MTTH Modern
@@ -1552,8 +1681,10 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                             type="button"
                             className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-xl font-bold transition-colors cursor-pointer"
                             onClick={() => {
-                              setSiteSettings(prev => ({ ...prev, logoUrl: SAMPLE_LOGO_2 }));
-                              showToast('Applied sample full logo & synced favicon!');
+                              const updated = { ...siteSettings, logoUrl: SAMPLE_LOGO_2 };
+                              setSiteSettings(updated);
+                              syncStateToServer({ siteSettings: updated });
+                              showToast('Applied sample full logo & synced across all devices!');
                             }}
                           >
                             Sample 2: Transit Hub
@@ -1564,8 +1695,10 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                               type="button"
                               className="bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs px-3 py-2 rounded-xl font-bold transition-colors cursor-pointer"
                               onClick={() => {
-                                setSiteSettings(prev => ({ ...prev, logoUrl: '' }));
-                                showToast('Reset to default brand emblem & favicon');
+                                const updated = { ...siteSettings, logoUrl: '' };
+                                setSiteSettings(updated);
+                                syncStateToServer({ siteSettings: updated });
+                                showToast('Reset to default brand emblem & synced across all devices');
                               }}
                             >
                               Reset Logo
@@ -1574,7 +1707,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         </div>
 
                         <span className="text-[11px] text-slate-500">
-                          Recommended format: Transparent PNG, SVG, or WebP.
+                          Recommended format: Transparent PNG, SVG, or WebP. Changes reflect live to all users.
                         </span>
                       </div>
                     </div>
@@ -1588,6 +1721,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         type="text" 
                         value={siteSettings.siteName}
                         onChange={(e) => setSiteSettings(prev => ({ ...prev, siteName: e.target.value }))}
+                        onBlur={() => syncStateToServer({ siteSettings })}
                         placeholder="e.g. MTTH"
                       />
                     </div>
@@ -1597,6 +1731,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         type="text" 
                         value={siteSettings.siteSubtitle}
                         onChange={(e) => setSiteSettings(prev => ({ ...prev, siteSubtitle: e.target.value }))}
+                        onBlur={() => syncStateToServer({ siteSettings })}
                         placeholder="e.g. Mindanao"
                       />
                     </div>
@@ -1606,6 +1741,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         type="text" 
                         value={siteSettings.tagline}
                         onChange={(e) => setSiteSettings(prev => ({ ...prev, tagline: e.target.value }))}
+                        onBlur={() => syncStateToServer({ siteSettings })}
                         placeholder="e.g. Your Journey Starts Here"
                       />
                     </div>
@@ -1615,6 +1751,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         type="text" 
                         value={siteSettings.announcementText}
                         onChange={(e) => setSiteSettings(prev => ({ ...prev, announcementText: e.target.value }))}
+                        onBlur={() => syncStateToServer({ siteSettings })}
                       />
                     </div>
                     <div className="admin-form-group">
@@ -1623,6 +1760,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         type="email" 
                         value={siteSettings.contactEmail}
                         onChange={(e) => setSiteSettings(prev => ({ ...prev, contactEmail: e.target.value }))}
+                        onBlur={() => syncStateToServer({ siteSettings })}
                       />
                     </div>
                     <div className="admin-form-group">
@@ -1631,16 +1769,17 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         type="text" 
                         value={siteSettings.contactPhone}
                         onChange={(e) => setSiteSettings(prev => ({ ...prev, contactPhone: e.target.value }))}
+                        onBlur={() => syncStateToServer({ siteSettings })}
                       />
                     </div>
                   </div>
 
                   <div className="pt-2 flex justify-end">
                     <button 
-                      className="primary px-6 py-2.5 rounded-xl font-bold"
-                      onClick={() => showToast('Site brand and settings updated successfully!')}
+                      className="primary px-6 py-2.5 rounded-xl font-bold cursor-pointer transition-all active:scale-95 shadow-md"
+                      onClick={handleSaveSettings}
                     >
-                      Save Settings
+                      Save Settings & Broadcast Live
                     </button>
                   </div>
                 </div>

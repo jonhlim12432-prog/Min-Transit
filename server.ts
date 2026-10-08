@@ -106,6 +106,37 @@ const saveDb = () => {
   } catch {}
 };
 
+// Real-Time Cross-Device Synchronization Engine
+let stateVersion = Date.now();
+const sseClients = new Set<express.Response>();
+
+const broadcastState = () => {
+  stateVersion = Date.now();
+  const payload = JSON.stringify({
+    type: 'update',
+    version: stateVersion,
+    timestamp: new Date().toISOString(),
+    data: {
+      schedules: schedulesStore,
+      vouchers: vouchersStore,
+      bookings: bookingsStore,
+      customersKyc: customersKycStore,
+      subAdmins: subAdminsStore,
+      siteSettings: siteSettingsStore,
+      sukiAccount: sukiStore
+    }
+  });
+
+  const message = `data: ${payload}\n\n`;
+  for (const client of Array.from(sseClients)) {
+    try {
+      client.write(message);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+};
+
 // Gemini AI setup
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -142,7 +173,7 @@ app.get('/api/operators', (req, res) => {
 
 app.get('/api/schedules', (req, res) => {
   const { origin, destination, transportType, date } = req.query;
-  let schedules = [...MOCK_SCHEDULES];
+  let schedules = [...schedulesStore];
 
   if (origin && typeof origin === 'string') {
     schedules = schedules.filter(s => s.origin.toLowerCase().includes(origin.toLowerCase()));
@@ -235,6 +266,9 @@ app.post('/api/bookings', (req, res) => {
     link: '/my-trips'
   });
 
+  saveDb();
+  broadcastState();
+
   res.json(newBooking);
 });
 
@@ -251,6 +285,8 @@ app.post('/api/bookings/:id/cancel', (req, res) => {
     }
     return b;
   });
+  saveDb();
+  broadcastState();
   res.json({ success: true, bookings: bookingsStore });
 });
 
@@ -307,6 +343,7 @@ app.post('/api/ai/recommend', async (req, res) => {
 // Admin & Cross-Device State Sync API
 app.get('/api/admin/state', (req, res) => {
   res.json({
+    version: stateVersion,
     schedules: schedulesStore,
     vouchers: vouchersStore,
     bookings: bookingsStore,
@@ -315,6 +352,69 @@ app.get('/api/admin/state', (req, res) => {
     siteSettings: siteSettingsStore,
     sukiAccount: sukiStore
   });
+});
+
+// Real-Time Server-Sent Events (SSE) Stream: Broadcasts instantly to all devices/users
+app.get('/api/admin/state/stream', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
+
+  // Send current state snapshot immediately on connection
+  const initialPayload = JSON.stringify({
+    type: 'sync',
+    version: stateVersion,
+    timestamp: new Date().toISOString(),
+    data: {
+      schedules: schedulesStore,
+      vouchers: vouchersStore,
+      bookings: bookingsStore,
+      customersKyc: customersKycStore,
+      subAdmins: subAdminsStore,
+      siteSettings: siteSettingsStore,
+      sukiAccount: sukiStore
+    }
+  });
+  res.write(`data: ${initialPayload}\n\n`);
+
+  sseClients.add(res);
+
+  // 25-second heartbeat ping to prevent connection timeout
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': heartbeat\n\n');
+    } catch {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
+});
+
+// Lightweight version check for polling fallback
+app.get('/api/admin/state/version', (req, res) => {
+  res.json({
+    version: stateVersion,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Dedicated Site Settings Update endpoint (Instant live sync for brand name, logo, announcements)
+app.post('/api/admin/settings', (req, res) => {
+  const newSettings = req.body;
+  if (newSettings && typeof newSettings === 'object') {
+    siteSettingsStore = { ...siteSettingsStore, ...newSettings };
+    saveDb();
+    broadcastState();
+  }
+  res.json({ success: true, version: stateVersion, siteSettings: siteSettingsStore });
 });
 
 app.post('/api/admin/state', (req, res) => {
@@ -327,7 +427,8 @@ app.post('/api/admin/state', (req, res) => {
   if (siteSettings) siteSettingsStore = siteSettings;
   if (sukiAccount) sukiStore = sukiAccount;
   saveDb();
-  res.json({ success: true });
+  broadcastState();
+  res.json({ success: true, version: stateVersion });
 });
 
 // Admin metrics & CMS
