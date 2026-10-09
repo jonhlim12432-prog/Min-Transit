@@ -1,5 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { GoogleGenAI } from '@google/genai';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import firebaseConfig from '../firebase-applet-config.json';
 import { 
   MOCK_DESTINATIONS, 
   MOCK_OPERATORS, 
@@ -16,6 +19,10 @@ import {
   DEFAULT_SAMPLE_BOOKINGS
 } from '../src/mockData';
 import { Booking } from '../src/types';
+
+// Shared Cloud Firestore database instance for Vercel Serverless
+const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig, 'vercel-api') : getApp('vercel-api');
+const firestoreDb = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -195,23 +202,49 @@ app.get('/api/suki', (_req: Request, res: Response) => {
   });
 });
 
-app.get('/api/bookings', (_req: Request, res: Response) => {
+app.get(['/api/bookings', '/bookings'], async (_req: Request, res: Response) => {
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'app_state', 'main'));
+    if (snap.exists() && Array.isArray(snap.data()?.bookings)) {
+      bookingsStore = snap.data()!.bookings;
+    }
+  } catch {}
   res.json(bookingsStore);
 });
 
-app.post('/api/bookings', (req: Request, res: Response) => {
+app.post(['/api/bookings', '/bookings'], async (req: Request, res: Response) => {
   const bookingData = req.body;
   const newBooking: Booking = {
     id: `bk-${Date.now()}`,
     bookingCode: `MTTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-    userId: sukiStore.userId,
+    userId: bookingData.userId || sukiStore.userId || 'guest-user',
     ...bookingData,
     status: 'confirmed',
     createdAt: new Date().toISOString(),
     qrCodeToken: `MTTH-QR-SECURE-${Date.now()}`
   };
 
-  bookingsStore.unshift(newBooking);
+  // Pull existing bookings from Firestore first to avoid overwriting on serverless cold starts
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'app_state', 'main'));
+    if (snap.exists() && Array.isArray(snap.data()?.bookings)) {
+      bookingsStore = snap.data()!.bookings;
+    }
+  } catch {}
+
+  bookingsStore = [newBooking, ...bookingsStore.filter(b => b.id !== newBooking.id)];
+
+  // Sync new booking into Firestore with clean sanitized JSON payload
+  try {
+    const payload = JSON.parse(JSON.stringify({
+      bookings: bookingsStore,
+      version: Date.now(),
+      updatedAt: new Date().toISOString()
+    }));
+    await setDoc(doc(firestoreDb, 'app_state', 'main'), payload, { merge: true });
+  } catch (err) {
+    console.warn('Vercel API Firestore booking write notice:', err);
+  }
 
   const pointsEarned = Math.round(newBooking.totalPaid * 0.1);
   sukiStore.points += pointsEarned;
@@ -238,7 +271,7 @@ app.post('/api/bookings', (req: Request, res: Response) => {
 });
 
 // Official Digital Ticket Verification Endpoint: Look up by Reference Number, Booking Code or QR Token
-app.get('/api/tickets/verify/:code', (req: Request, res: Response) => {
+app.get('/api/tickets/verify/:code', async (req: Request, res: Response) => {
   const query = (req.params.code || '').trim().toLowerCase();
   if (!query) {
     return res.status(400).json({ found: false, error: 'Reference number is required' });
@@ -246,7 +279,15 @@ app.get('/api/tickets/verify/:code', (req: Request, res: Response) => {
 
   const cleanQuery = query.replace(/[^a-z0-9]/g, '');
 
-  const match = bookingsStore.find((b: any) => {
+  let listToSearch = [...bookingsStore];
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'app_state', 'main'));
+    if (snap.exists() && Array.isArray(snap.data()?.bookings)) {
+      listToSearch = snap.data().bookings;
+    }
+  } catch {}
+
+  const match = listToSearch.find((b: any) => {
     const code = (b.bookingCode || '').toLowerCase();
     const id = (b.id || '').toLowerCase();
     const qr = (b.qrCodeToken || '').toLowerCase();
@@ -275,7 +316,14 @@ app.get('/api/tickets/verify/:code', (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/bookings/:id/cancel', (req: Request, res: Response) => {
+app.post(['/api/bookings/:id/cancel', '/bookings/:id/cancel'], async (req: Request, res: Response) => {
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'app_state', 'main'));
+    if (snap.exists() && Array.isArray(snap.data()?.bookings)) {
+      bookingsStore = snap.data()!.bookings;
+    }
+  } catch {}
+
   bookingsStore = bookingsStore.map(b => {
     if (b.id === req.params.id) {
       return {
@@ -287,6 +335,18 @@ app.post('/api/bookings/:id/cancel', (req: Request, res: Response) => {
     }
     return b;
   });
+
+  try {
+    const payload = JSON.parse(JSON.stringify({
+      bookings: bookingsStore,
+      version: Date.now(),
+      updatedAt: new Date().toISOString()
+    }));
+    await setDoc(doc(firestoreDb, 'app_state', 'main'), payload, { merge: true });
+  } catch (err) {
+    console.warn('Vercel API Firestore cancel write notice:', err);
+  }
+
   res.json({ success: true, bookings: bookingsStore });
 });
 
@@ -339,10 +399,40 @@ app.post('/api/ai/recommend', async (req: Request, res: Response) => {
   }
 });
 
-let serverlessStateVersion = Date.now();
+let serverlessStateVersion = 1;
 
-// Admin & Cross-Device State Sync API
-app.get('/api/admin/state', (_req: Request, res: Response) => {
+// Admin & Cross-Device State Sync API backed by Cloud Firestore
+app.get(['/api/admin/state', '/admin/state'], async (_req: Request, res: Response) => {
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'app_state', 'main'));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data) {
+        if (data.schedules) schedulesStore = data.schedules;
+        if (data.vouchers) vouchersStore = data.vouchers;
+        if (data.bookings) bookingsStore = data.bookings;
+        if (data.customersKyc) customersKycStore = data.customersKyc;
+        if (data.subAdmins) subAdminsStore = data.subAdmins;
+        if (data.siteSettings) siteSettingsStore = data.siteSettings;
+        if (data.sukiAccount) sukiStore = data.sukiAccount;
+        if (data.version) serverlessStateVersion = data.version;
+
+        return res.json({
+          version: data.version || serverlessStateVersion,
+          schedules: data.schedules || schedulesStore,
+          vouchers: data.vouchers || vouchersStore,
+          bookings: data.bookings || bookingsStore,
+          customersKyc: data.customersKyc || customersKycStore,
+          subAdmins: data.subAdmins || subAdminsStore,
+          siteSettings: data.siteSettings || siteSettingsStore,
+          sukiAccount: data.sukiAccount || sukiStore
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Vercel API Firestore read error:', err);
+  }
+
   res.json({
     version: serverlessStateVersion,
     schedules: schedulesStore,
@@ -355,23 +445,40 @@ app.get('/api/admin/state', (_req: Request, res: Response) => {
   });
 });
 
-app.get('/api/admin/state/version', (_req: Request, res: Response) => {
+app.get(['/api/admin/state/version', '/admin/state/version'], async (_req: Request, res: Response) => {
+  try {
+    const snap = await getDoc(doc(firestoreDb, 'app_state', 'main'));
+    if (snap.exists() && snap.data()?.version) {
+      serverlessStateVersion = snap.data()!.version;
+    }
+  } catch {}
+
   res.json({
     version: serverlessStateVersion,
     timestamp: new Date().toISOString()
   });
 });
 
-app.post('/api/admin/settings', (req: Request, res: Response) => {
+app.post(['/api/admin/settings', '/admin/settings'], async (req: Request, res: Response) => {
   const newSettings = req.body;
   if (newSettings && typeof newSettings === 'object') {
     siteSettingsStore = { ...siteSettingsStore, ...newSettings };
     serverlessStateVersion = Date.now();
+    try {
+      const payload = JSON.parse(JSON.stringify({
+        version: serverlessStateVersion,
+        siteSettings: siteSettingsStore,
+        updatedAt: new Date().toISOString()
+      }));
+      await setDoc(doc(firestoreDb, 'app_state', 'main'), payload, { merge: true });
+    } catch (err) {
+      console.warn('Vercel API Firestore settings write error:', err);
+    }
   }
   res.json({ success: true, version: serverlessStateVersion, siteSettings: siteSettingsStore });
 });
 
-app.post('/api/admin/state', (req: Request, res: Response) => {
+app.post(['/api/admin/state', '/admin/state'], async (req: Request, res: Response) => {
   const { schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount } = req.body;
   if (schedules) schedulesStore = schedules;
   if (vouchers) vouchersStore = vouchers;
@@ -381,10 +488,29 @@ app.post('/api/admin/state', (req: Request, res: Response) => {
   if (siteSettings) siteSettingsStore = siteSettings;
   if (sukiAccount) sukiStore = sukiAccount;
   serverlessStateVersion = Date.now();
+
+  try {
+    const rawPayload = {
+      version: serverlessStateVersion,
+      schedules: schedulesStore,
+      vouchers: vouchersStore,
+      bookings: bookingsStore,
+      customersKyc: customersKycStore,
+      subAdmins: subAdminsStore,
+      siteSettings: siteSettingsStore,
+      sukiAccount: sukiStore,
+      updatedAt: new Date().toISOString()
+    };
+    const payload = JSON.parse(JSON.stringify(rawPayload));
+    await setDoc(doc(firestoreDb, 'app_state', 'main'), payload, { merge: true });
+  } catch (err) {
+    console.warn('Vercel API Firestore state write error:', err);
+  }
+
   res.json({ success: true, version: serverlessStateVersion });
 });
 
-app.get('/api/admin/metrics', (_req: Request, res: Response) => {
+app.get(['/api/admin/metrics', '/admin/metrics'], (_req: Request, res: Response) => {
   res.json({
     totalBookings: bookingsStore.length,
     totalRevenue: bookingsStore.reduce((sum, b) => sum + b.totalPaid, 0),
@@ -400,4 +526,8 @@ app.use('/api', (_req: Request, res: Response) => {
   res.status(404).json({ error: 'API route not found' });
 });
 
-export default app;
+export default function handler(req: Request, res: Response) {
+  return app(req, res);
+}
+
+export { app };

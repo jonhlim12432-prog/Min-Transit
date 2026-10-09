@@ -35,7 +35,7 @@ import {
   EditSubAdminModal 
 } from './components/AdminManagerModals';
 import { db } from './firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { OperationType, handleFirestoreError, isFirestoreQuotaExhausted } from './utils/firestoreHelpers';
 
 export default function App() {
@@ -520,9 +520,9 @@ export default function App() {
     showToast('Admin logged out.');
   };
 
-  // Real-time Cloud Firestore & Cross-Device Synchronization with Loop Prevention & Quota Protection
+  // Real-time Cloud Firestore & Cross-Device Synchronization with Loop Prevention & Safe Bootstrapping
   const isSyncingFromRemote = React.useRef(false);
-  const isInitialMount = React.useRef(true);
+  const hasInitialSyncCompleted = React.useRef(false);
   const lastSyncedVersion = React.useRef<number>(0);
 
   // Synchronous State References for instant access during saves
@@ -541,7 +541,7 @@ export default function App() {
   const sukiAccountRef = React.useRef(sukiAccount);
   sukiAccountRef.current = sukiAccount;
 
-  // Immediate State Push to Backend with version tracking and Firestore sync
+  // Immediate State Push to Cloud Firestore and Backend with version tracking
   const syncStateToServer = React.useCallback(async (overrides?: {
     siteSettings?: SiteSettings;
     schedules?: Schedule[];
@@ -551,6 +551,8 @@ export default function App() {
     subAdmins?: SubAdmin[];
     sukiAccount?: SukiAccount;
   }) => {
+    if (isSyncingFromRemote.current) return;
+
     const activeSiteSettings = overrides?.siteSettings ?? siteSettingsRef.current;
     const activeSchedules = overrides?.schedules ?? schedulesRef.current;
     const activeVouchers = overrides?.vouchers ?? vouchersRef.current;
@@ -559,16 +561,35 @@ export default function App() {
     const activeSubAdmins = overrides?.subAdmins ?? subAdminsRef.current;
     const activeSuki = overrides?.sukiAccount ?? sukiAccountRef.current;
 
-    const payload = {
+    const newVersion = Date.now();
+    lastSyncedVersion.current = newVersion;
+
+    const rawPayload = {
+      version: newVersion,
       schedules: activeSchedules,
       vouchers: activeVouchers,
       bookings: activeBookings,
       customersKyc: activeKyc,
       subAdmins: activeSubAdmins,
       siteSettings: activeSiteSettings,
-      sukiAccount: activeSuki
+      sukiAccount: activeSuki,
+      updatedAt: new Date().toISOString()
     };
 
+    // Sanitize payload to remove any undefined fields before writing to Firestore
+    const payload = JSON.parse(JSON.stringify(rawPayload));
+
+    // 1. Direct Cloud Firestore Push (Primary: shared across all devices, browsers, and Vercel deployments)
+    if (!isFirestoreQuotaExhausted()) {
+      try {
+        await setDoc(doc(db, 'app_state', 'main'), payload, { merge: true });
+      } catch (err) {
+        console.warn('Firestore sync to app_state/main notice:', err);
+        handleFirestoreError(err, OperationType.WRITE, 'app_state/main');
+      }
+    }
+
+    // 2. Also notify backend API (for local Express server.ts / server-db.json fallback & Vercel serverless)
     try {
       const res = await fetch('/api/admin/state', {
         method: 'POST',
@@ -577,30 +598,16 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.version) {
+        if (data.version && data.version > lastSyncedVersion.current) {
           lastSyncedVersion.current = data.version;
         }
       }
     } catch (e) {
-      console.warn('Sync to backend API failed:', e);
-    }
-
-    // Secondary Firestore sync if quota is not exhausted
-    if (!isFirestoreQuotaExhausted()) {
-      try {
-        await setDoc(doc(db, 'app_state', 'siteSettings'), activeSiteSettings);
-        await setDoc(doc(db, 'app_state', 'schedules'), { items: activeSchedules });
-        await setDoc(doc(db, 'app_state', 'vouchers'), { items: activeVouchers });
-        await setDoc(doc(db, 'app_state', 'bookings'), { items: activeBookings });
-        await setDoc(doc(db, 'app_state', 'customersKyc'), { items: activeKyc });
-        await setDoc(doc(db, 'app_state', 'subAdmins'), { items: activeSubAdmins });
-      } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, 'app_state');
-      }
+      console.warn('Sync to backend API notice:', e);
     }
   }, []);
 
-  // Real-Time Cross-Device Receiver (SSE Stream + Polling Fallback + Lifecycle listeners)
+  // Real-Time Cross-Device Receiver (Cloud Firestore onSnapshot + Initial Bootstrap + API Fallback)
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let isMounted = true;
@@ -608,7 +615,7 @@ export default function App() {
 
     const applyRemoteState = (data: any, version?: number) => {
       if (!data) return;
-      if (version && version <= lastSyncedVersion.current) return;
+      if (version && version <= lastSyncedVersion.current && hasInitialSyncCompleted.current) return;
       if (version) lastSyncedVersion.current = version;
 
       isSyncingFromRemote.current = true;
@@ -616,11 +623,11 @@ export default function App() {
         setSiteSettings(data.siteSettings);
         try { localStorage.setItem('mtth_site_settings', JSON.stringify(data.siteSettings)); } catch {}
       }
-      if (data.schedules && Array.isArray(data.schedules)) {
+      if (data.schedules && Array.isArray(data.schedules) && data.schedules.length > 0) {
         setSchedules(data.schedules);
         try { localStorage.setItem('mtth_schedules', JSON.stringify(data.schedules)); } catch {}
       }
-      if (data.vouchers && Array.isArray(data.vouchers)) {
+      if (data.vouchers && Array.isArray(data.vouchers) && data.vouchers.length > 0) {
         setVouchers(data.vouchers);
         try { localStorage.setItem('mtth_vouchers', JSON.stringify(data.vouchers)); } catch {}
       }
@@ -632,66 +639,116 @@ export default function App() {
         setCustomersKyc(data.customersKyc);
         try { localStorage.setItem('mtth_customers_kyc', JSON.stringify(data.customersKyc)); } catch {}
       }
-      if (data.subAdmins && Array.isArray(data.subAdmins)) {
+      if (data.subAdmins && Array.isArray(data.subAdmins) && data.subAdmins.length > 0) {
         setSubAdmins(data.subAdmins);
         try { localStorage.setItem('mtth_subadmins', JSON.stringify(data.subAdmins)); } catch {}
       }
       if (data.sukiAccount) {
         setSukiAccount(data.sukiAccount);
       }
+      hasInitialSyncCompleted.current = true;
       setTimeout(() => {
         isSyncingFromRemote.current = false;
-      }, 350);
+      }, 600);
     };
 
+    // 1. Initial immediate Bootstrap read from Firestore
+    const bootstrapFromFirestore = async () => {
+      if (!isFirestoreQuotaExhausted()) {
+        try {
+          const snap = await getDoc(doc(db, 'app_state', 'main'));
+          if (isMounted && snap.exists()) {
+            const remote = snap.data();
+            if (remote) {
+              applyRemoteState(remote, remote.version);
+            }
+          }
+        } catch (err) {
+          console.warn('Initial Firestore bootstrap notice:', err);
+        } finally {
+          if (isMounted) {
+            hasInitialSyncCompleted.current = true;
+          }
+        }
+      } else {
+        hasInitialSyncCompleted.current = true;
+      }
+    };
+    bootstrapFromFirestore();
+
+    // 2. PRIMARY: Real-time Cloud Firestore onSnapshot listener (instant multi-device sync across all devices)
+    let unsubscribeFirestore = () => {};
+    if (!isFirestoreQuotaExhausted()) {
+      try {
+        unsubscribeFirestore = onSnapshot(doc(db, 'app_state', 'main'), (snapshot) => {
+          if (!isMounted) return;
+          if (snapshot.exists()) {
+            const remote = snapshot.data();
+            if (remote) {
+              applyRemoteState(remote, remote.version);
+            }
+          }
+        }, (error) => {
+          console.warn('Firestore onSnapshot listener notice:', error);
+          handleFirestoreError(error, OperationType.GET, 'app_state/main');
+        });
+      } catch (err) {
+        console.warn('Could not establish Firestore onSnapshot:', err);
+      }
+    }
+
+    // 3. Complementary fetch from backend API
     const fetchLatestState = async () => {
       try {
         const res = await fetch('/api/admin/state');
         if (res.ok) {
           const data = await res.json();
-          applyRemoteState(data, data.version);
+          if (isMounted && data) {
+            applyRemoteState(data, data.version);
+          }
         }
       } catch {}
     };
 
-    // Immediate initial state fetch
     fetchLatestState();
 
-    // Establish Server-Sent Events (SSE) stream for live updates across all devices
+    // 4. Establish Server-Sent Events (SSE) stream for live updates when available
     const connectSSE = () => {
       try {
-        eventSource = new EventSource('/api/admin/state/stream');
+        if (typeof window !== 'undefined' && window.EventSource) {
+          eventSource = new EventSource('/api/admin/state/stream');
 
-        eventSource.onmessage = (event) => {
-          try {
-            const payload = JSON.parse(event.data);
-            if (payload && payload.data) {
-              applyRemoteState(payload.data, payload.version);
+          eventSource.onmessage = (event) => {
+            try {
+              const payload = JSON.parse(event.data);
+              if (payload && payload.data) {
+                applyRemoteState(payload.data, payload.version);
+              }
+            } catch (e) {
+              console.warn('Error parsing SSE message:', e);
             }
-          } catch (e) {
-            console.warn('Error parsing SSE message:', e);
-          }
-        };
+          };
 
-        eventSource.onerror = () => {
-          if (eventSource) {
-            eventSource.close();
-            eventSource = null;
-          }
-          if (isMounted) {
-            reconnectTimeout = setTimeout(connectSSE, 3500);
-          }
-        };
+          eventSource.onerror = () => {
+            if (eventSource) {
+              eventSource.close();
+              eventSource = null;
+            }
+            if (isMounted) {
+              reconnectTimeout = setTimeout(connectSSE, 6000);
+            }
+          };
+        }
       } catch {
         if (isMounted) {
-          reconnectTimeout = setTimeout(connectSSE, 4000);
+          reconnectTimeout = setTimeout(connectSSE, 8000);
         }
       }
     };
 
     connectSSE();
 
-    // High-frequency polling fallback (every 2.5s) to guarantee instant sync on mobile devices/tabs
+    // 5. Polling fallback (every 3s)
     const pollInterval = setInterval(async () => {
       try {
         const res = await fetch('/api/admin/state/version');
@@ -702,11 +759,12 @@ export default function App() {
           }
         }
       } catch {}
-    }, 2500);
+    }, 3000);
 
-    // Sync immediately when mobile device is unlocked or tab is switched into focus
+    // 6. Sync immediately when device is unlocked or tab is switched into focus
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
+        bootstrapFromFirestore();
         fetchLatestState();
       }
     };
@@ -715,6 +773,7 @@ export default function App() {
 
     return () => {
       isMounted = false;
+      unsubscribeFirestore();
       if (eventSource) eventSource.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       clearInterval(pollInterval);
@@ -724,9 +783,9 @@ export default function App() {
   }, []);
 
   // Debounced auto-save for typing in form inputs (e.g., site settings text fields)
+  // Protected: NEVER auto-saves until initial state has finished bootstrapping from the database
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    if (!hasInitialSyncCompleted.current) {
       return;
     }
 
@@ -736,7 +795,7 @@ export default function App() {
 
     const timer = setTimeout(() => {
       syncStateToServer();
-    }, 400);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount, syncStateToServer]);

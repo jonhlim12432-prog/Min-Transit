@@ -28,22 +28,17 @@ export interface FirestoreErrorInfo {
 
 const QUOTA_KEY = 'mtth_firestore_quota_exhausted';
 
-// Initialize quota exhaustion state from persistent storage or default to true since quota is currently exhausted
-let isQuotaExhausted = true;
+// Firestore is active and ready by default
+let isQuotaExhausted = false;
 try {
   if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(QUOTA_KEY);
-    const session = sessionStorage.getItem(QUOTA_KEY);
-    if (local === 'false' && session === 'false') {
-      isQuotaExhausted = false;
-    } else {
-      isQuotaExhausted = true;
-      localStorage.setItem(QUOTA_KEY, 'true');
-      sessionStorage.setItem(QUOTA_KEY, 'true');
-    }
+    // Reset any old stale forced quota locks so Firestore sync works across all devices
+    localStorage.removeItem(QUOTA_KEY);
+    sessionStorage.removeItem(QUOTA_KEY);
+    isQuotaExhausted = false;
   }
 } catch {
-  isQuotaExhausted = true;
+  isQuotaExhausted = false;
 }
 
 export function isFirestoreQuotaExhausted(): boolean {
@@ -102,7 +97,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Operation Notice: ', JSON.stringify(errInfo));
+  return errInfo;
 }
 
