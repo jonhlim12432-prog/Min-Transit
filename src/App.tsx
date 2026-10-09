@@ -13,13 +13,14 @@ import {
 } from './types';
 import { 
   MOCK_SCHEDULES, MOCK_VOUCHERS, INITIAL_SUKI_ACCOUNT, INITIAL_USER_PROFILE, MOCK_CUSTOMERS_KYC, CustomerKycRecord,
-  createBlankUserProfile, createBlankSukiAccount 
+  createBlankUserProfile, createBlankSukiAccount, DEFAULT_SAMPLE_BOOKINGS 
 } from './mockData';
 
 import { SearchResults } from './components/SearchResults';
 import { BookingCheckout } from './components/BookingCheckout';
 import { BookingConfirmation } from './components/BookingConfirmation';
 import { DigitalTicketModal } from './components/DigitalTicketModal';
+import { TicketVerificationModal } from './components/TicketVerificationModal';
 import { NotificationCenter } from './components/NotificationCenter';
 import { ProfileModal } from './components/ProfileModal';
 import { VercelDeployModal } from './components/VercelDeployModal';
@@ -309,16 +310,16 @@ export default function App() {
     try { localStorage.setItem('mtth_vouchers', JSON.stringify(vouchers)); } catch {}
   }, [vouchers]);
 
-  // Bookings Store - Clean real bookings only (Removed demo Maria Santos bookings)
+  // Bookings Store - Clean real bookings & verified sample ledgers
   const [bookings, setBookings] = useState<Booking[]>(() => {
     try {
       const saved = localStorage.getItem('mtth_bookings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed.filter((b: any) => b.userId !== 'user-suki-001');
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [];
+    return DEFAULT_SAMPLE_BOOKINGS;
   });
   useEffect(() => {
     try { localStorage.setItem('mtth_bookings', JSON.stringify(bookings)); } catch {}
@@ -397,6 +398,33 @@ export default function App() {
   const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
   const [digitalTicketBooking, setDigitalTicketBooking] = useState<Booking | null>(null);
   const [selectedTicketCode, setSelectedTicketCode] = useState<string | null>(null);
+
+  // Ticket Verification Modal State
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verifyCodeQuery, setVerifyCodeQuery] = useState('');
+
+  const handleOpenVerifyModal = (code?: string) => {
+    setVerifyCodeQuery(code || '');
+    setShowVerifyModal(true);
+  };
+
+  // Deep-linking: auto-open Ticket Verification modal if URL has ?verify=CODE or #verify-CODE
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const verifyParam = params.get('verify');
+      if (verifyParam) {
+        setVerifyCodeQuery(verifyParam);
+        setShowVerifyModal(true);
+      } else if (window.location.hash.startsWith('#verify-')) {
+        const hashParam = window.location.hash.replace('#verify-', '');
+        if (hashParam) {
+          setVerifyCodeQuery(hashParam);
+          setShowVerifyModal(true);
+        }
+      }
+    }
+  }, []);
 
   // Modals & Popups
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -876,7 +904,10 @@ export default function App() {
         createdAt: new Date().toISOString(),
         qrCodeToken: `MTTH-QR-${Date.now()}`
       };
-      setBookings(prev => [bookingToAdd, ...prev]);
+      const updatedList = [bookingToAdd, ...bookings];
+      setBookings(updatedList);
+      syncStateToServer({ bookings: updatedList });
+      try { localStorage.setItem('mtth_bookings', JSON.stringify(updatedList)); } catch {}
       setActiveBooking(bookingToAdd);
       setActiveView('confirmation');
       const ptsEarned = bookingToAdd.sukiPointsEarned || 100;
@@ -903,7 +934,10 @@ export default function App() {
         createdAt: new Date().toISOString(),
         qrCodeToken: `MTTH-QR-${Date.now()}`
       };
-      setBookings(prev => [localBooking, ...prev]);
+      const updatedList = [localBooking, ...bookings];
+      setBookings(updatedList);
+      syncStateToServer({ bookings: updatedList });
+      try { localStorage.setItem('mtth_bookings', JSON.stringify(updatedList)); } catch {}
       setActiveBooking(localBooking);
       setActiveView('confirmation');
       const ptsEarned = localBooking.sukiPointsEarned || 100;
@@ -1303,7 +1337,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
     userAuthModalOpen || selectedKycForReview || editingCustomer || editingBooking || editingSchedule ||
     editingVoucher || editingSubAdmin || showAddRouteModal || showAddPromoModal ||
     showAddOperatorModal || showAddDestinationModal || showAddCustomerModal ||
-    showAddSubAdminModal || digitalTicketBooking || mobileMenuOpen
+    showAddSubAdminModal || digitalTicketBooking || showVerifyModal || mobileMenuOpen
   );
 
   return (
@@ -2474,11 +2508,19 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <button 
                                     className="p-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                                    onClick={() => setSelectedTicketCode(b.bookingCode)}
-                                    title="View Ticket QR Code"
+                                    onClick={() => setDigitalTicketBooking(b)}
+                                    title="Preview & Download Ticket"
                                   >
                                     <QrCode className="w-3.5 h-3.5" />
                                     <span>Ticket</span>
+                                  </button>
+                                  <button 
+                                    className="p-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                    onClick={() => handleOpenVerifyModal(b.bookingCode)}
+                                    title="Verify Ticket Authenticity"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5" />
+                                    <span>Verify</span>
                                   </button>
 
                                   <button
@@ -2724,7 +2766,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                       No upcoming trips found. Book your next journey across Mindanao!
                     </div>
                   ) : (
-                    bookings.filter(b => b.userId === currentUser.id && b.status === 'confirmed').map((b) => (
+                    bookings.filter(b => (b.userId === currentUser.id || !b.userId || b.userId === 'guest-user') && b.status === 'confirmed').map((b) => (
                       <article key={b.id} className="trip">
                         <div className="trip-icon">
                           {renderTransportIcon(b.transportType, "w-5 h-5 text-teal-700")}
@@ -2735,9 +2777,23 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                           <span className="confirmed">Confirmed</span>
                         </div>
                         <strong>₱{b.totalPaid.toLocaleString()}</strong>
-                        <button onClick={() => setSelectedTicketCode(b.bookingCode)}>
-                          View Ticket
-                        </button>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button 
+                            onClick={() => setDigitalTicketBooking(b)}
+                            className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs flex items-center gap-1 cursor-pointer shadow-sm transition-transform active:scale-95"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            <span>Preview & Download</span>
+                          </button>
+                          <button 
+                            onClick={() => handleOpenVerifyModal(b.bookingCode)}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 cursor-pointer border border-slate-300 transition-colors"
+                            title="Verify Ticket Authenticity"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Verify</span>
+                          </button>
+                        </div>
                       </article>
                     ))
                   )}
@@ -2861,6 +2917,16 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               </div>
               <div className="nav-group">
                 <button onClick={() => setActiveView('dashboard')}>My Trips</button>
+              </div>
+              <div className="nav-group">
+                <button 
+                  onClick={() => handleOpenVerifyModal()}
+                  className="flex items-center gap-1 text-teal-300 hover:text-white font-extrabold cursor-pointer"
+                  title="Verify ticket authenticity via QR code or reference number"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Verify Ticket</span>
+                </button>
               </div>
             </nav>
 
@@ -3035,6 +3101,13 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     >
                       <Ticket className="w-4 h-4 text-amber-400" />
                       <span>My Trips & Tickets</span>
+                    </button>
+                    <button 
+                      onClick={() => { handleOpenVerifyModal(); setMobileMenuOpen(false); }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs text-teal-300 bg-teal-950/60 border border-teal-500/30 hover:bg-teal-900 text-left transition-colors cursor-pointer"
+                    >
+                      <ShieldCheck className="w-4 h-4 text-teal-400" />
+                      <span>Verify Ticket (QR / Ref #)</span>
                     </button>
                     <button 
                       onClick={() => { setNotifModalOpen(true); setMobileMenuOpen(false); }}
@@ -3581,6 +3654,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               booking={activeBooking}
               onViewTrips={() => setActiveView('dashboard')}
               onViewDigitalTicket={(b) => setDigitalTicketBooking(b)}
+              onVerifyTicket={(b) => handleOpenVerifyModal(b.bookingCode)}
               onHome={() => setActiveView('landing')}
             />
           )}
@@ -3597,6 +3671,10 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               </div>
               <div className="footer-links">
                 <button onClick={() => showToast('Mindanao Ticket Hub is the premier travel gateway across Southern Philippines.')}>About Us</button>
+                <button onClick={() => handleOpenVerifyModal()} className="text-teal-400 font-extrabold flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Verify Ticket (QR / Ref #)</span>
+                </button>
                 <button onClick={() => showToast(`Support contact: ${siteSettings.contactEmail} or ${siteSettings.contactPhone}`)}>Contact</button>
                 <button onClick={() => showToast('Help Center: 24/7 travel assistance available')}>Help Center</button>
                 <button onClick={() => showToast('Travel Policies: 24h flexible cancellations on select routes')}>Travel Policies</button>
@@ -4127,8 +4205,24 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
         <DigitalTicketModal 
           booking={digitalTicketBooking}
           onClose={() => setDigitalTicketBooking(null)}
+          onVerifyTicket={(b) => handleOpenVerifyModal(b.bookingCode)}
         />
       )}
+
+      {/* Official Ticket Verification Modal */}
+      <TicketVerificationModal
+        isOpen={showVerifyModal}
+        onClose={() => {
+          setShowVerifyModal(false);
+          setVerifyCodeQuery('');
+        }}
+        onPreviewTicket={(b) => {
+          setShowVerifyModal(false);
+          setDigitalTicketBooking(b);
+        }}
+        allBookings={bookings}
+        initialCode={verifyCodeQuery}
+      />
 
       {/* AI Concierge Modal */}
       <div 
@@ -4323,6 +4417,14 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
           >
             <Award className="w-5 h-5 mb-0.5 text-amber-400" />
             <span className="text-[10px] leading-tight font-bold text-amber-300">Suki</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenVerifyModal()}
+            className="flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-colors text-teal-400 hover:text-teal-300 cursor-pointer"
+          >
+            <ShieldCheck className="w-5 h-5 mb-0.5 text-teal-400" />
+            <span className="text-[10px] leading-tight font-extrabold text-teal-300">Verify</span>
           </button>
 
           <button

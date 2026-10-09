@@ -1,6 +1,7 @@
 // server.ts
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
@@ -1003,19 +1004,108 @@ var MOCK_REVIEWS = [
     route: "Davao City \u2192 Siargao Island"
   }
 ];
-var INITIAL_SUKI_ACCOUNT = {
-  userId: "user-suki-001",
-  name: "Maria Santos",
-  email: "maria.santos@example.com",
-  tier: "Gold",
-  points: 4250,
-  pointsToNextTier: 750,
-  // 6000 for VIP
-  completedTrips: 18,
-  vouchersCount: 3,
-  joinedDate: "January 2025",
-  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"
+var createBlankSukiAccount = (userId, name, email) => ({
+  userId,
+  name,
+  email,
+  tier: "Starter",
+  points: 100,
+  // Welcome bonus points
+  pointsToNextTier: 900,
+  completedTrips: 0,
+  vouchersCount: 1,
+  joinedDate: "October 2026",
+  avatar: ""
+});
+var createBlankUserProfile = (id, fullName, email, phone = "") => {
+  const parts = fullName.trim().split(" ");
+  const firstName = parts[0] || "";
+  const lastName = parts.slice(1).join(" ") || "";
+  return {
+    id,
+    fullName,
+    firstName,
+    lastName,
+    avatarUrl: "",
+    email,
+    phone,
+    dob: "2000-01-01",
+    gender: "other",
+    nationality: "Filipino",
+    address: {
+      street: "",
+      city: "",
+      province: "",
+      region: "",
+      zipCode: ""
+    },
+    emergencyContact: {
+      name: "",
+      relationship: "",
+      phone: ""
+    },
+    travelPreferences: {
+      seatPreference: "window",
+      specialAssistance: false,
+      frequentFlyerNo: "",
+      preferredBusClass: "Aircon",
+      preferredFerryClass: "Tourist"
+    },
+    notificationSettings: {
+      emailTripUpdates: true,
+      smsDepartureAlerts: true,
+      promotionalOffers: true
+    },
+    kyc: {
+      status: "unverified",
+      idType: "philsys_national_id",
+      idNumber: "",
+      submittedAt: "",
+      verifiedAt: "",
+      verificationCode: ""
+    }
+  };
 };
+var INITIAL_SUKI_ACCOUNT = createBlankSukiAccount("guest-user", "Guest Traveler", "");
+var INITIAL_USER_PROFILE = createBlankUserProfile("guest-user", "Guest Traveler", "");
+var MOCK_CUSTOMERS_KYC = [
+  {
+    id: "cust-2",
+    name: "Juan Dela Cruz",
+    email: "juan.delacruz@mindanaomail.ph",
+    phone: "+63 918 456 7890",
+    tier: "VIP Suki",
+    kycStatus: "verified",
+    idType: "Philippine Passport",
+    idNumber: "P8920192A",
+    submittedAt: "2026-09-14",
+    completedBookings: 32
+  },
+  {
+    id: "cust-3",
+    name: "Kristine Mae Alcantara",
+    email: "kristine.alcantara@gmail.com",
+    phone: "+63 920 334 8812",
+    tier: "Plus Suki",
+    kycStatus: "pending",
+    idType: "Driver's License",
+    idNumber: "D02-19-092812",
+    submittedAt: "2026-10-06 08:30",
+    completedBookings: 5
+  },
+  {
+    id: "cust-4",
+    name: "Mark Anthony Tan",
+    email: "mark.tan@davaobiz.ph",
+    phone: "+63 927 889 0012",
+    tier: "Starter Suki",
+    kycStatus: "verified",
+    idType: "UMID",
+    idNumber: "0033-9182049-1",
+    submittedAt: "2026-08-20",
+    completedBookings: 9
+  }
+];
 var MOCK_POINT_HISTORY = [
   {
     id: "pt-1",
@@ -1099,18 +1189,11 @@ var MOCK_NOTIFICATIONS = [
     link: "/deals"
   }
 ];
-
-// server.ts
-dotenv.config();
-var __filename = fileURLToPath(import.meta.url);
-var __dirname = path.dirname(__filename);
-var app = express();
-app.use(express.json());
-var bookingsStore = [
+var DEFAULT_SAMPLE_BOOKINGS = [
   {
-    id: "bk-101",
-    bookingCode: "MTTH-CAM-8821",
-    userId: "user-suki-001",
+    id: "bk-sample-1",
+    bookingCode: "MTTH-8F92A1",
+    userId: "guest-user",
     scheduleId: "sch-1",
     transportType: "ferry",
     operatorName: "SuperFerry Mindanao",
@@ -1120,29 +1203,200 @@ var bookingsStore = [
     departureTime: "2026-10-10T06:00:00",
     arrivalTime: "2026-10-10T09:30:00",
     passengers: [
-      { fullName: "Maria Santos", dob: "1992-05-14", gender: "female", mobile: "+639171234567", email: "maria.santos@example.com", passengerType: "adult", seatNumber: "A12" }
+      {
+        fullName: "Juan Dela Cruz",
+        dob: "1992-05-14",
+        gender: "male",
+        mobile: "+63 917 555 1234",
+        email: "juan.delacruz@gmail.com",
+        passengerType: "adult",
+        seatNumber: "Seat 14A"
+      }
     ],
-    selectedClass: "Tourist",
+    selectedClass: "Tourist Class",
     baseFare: 850,
     terminalFee: 30,
     serviceFee: 50,
-    taxes: 45,
-    discountAmount: 85,
-    voucherCode: "WELCOME10",
-    sukiDiscountAmount: 40,
-    totalPaid: 850,
-    sukiPointsEarned: 250,
+    taxes: 0,
+    discountAmount: 0,
+    sukiDiscountAmount: 0,
+    totalPaid: 930,
+    sukiPointsEarned: 93,
     paymentMethod: "GCash",
     status: "confirmed",
-    createdAt: "2026-10-01T10:00:00Z",
-    qrCodeToken: "MTTH-QR-SECURE-CAM-9921"
+    createdAt: "2026-10-08T08:00:00.000Z",
+    qrCodeToken: "MTTH-QR-8F92A1-SECURE"
+  },
+  {
+    id: "bk-sample-2",
+    bookingCode: "MTTH-B441C2",
+    userId: "guest-user",
+    scheduleId: "sch-4",
+    transportType: "flight",
+    operatorName: "Philippine Airlines (PAL Express)",
+    operatorLogo: "PR",
+    origin: "Davao City",
+    destination: "Siargao Island",
+    departureTime: "2026-10-12T09:15:00",
+    arrivalTime: "2026-10-12T10:15:00",
+    passengers: [
+      {
+        fullName: "Maria Clara Santos",
+        dob: "1996-11-20",
+        gender: "female",
+        mobile: "+63 918 888 4321",
+        email: "maria.santos@gmail.com",
+        passengerType: "adult",
+        seatNumber: "Seat 03F"
+      }
+    ],
+    selectedClass: "Economy Premium",
+    baseFare: 2450,
+    terminalFee: 200,
+    serviceFee: 100,
+    taxes: 0,
+    discountAmount: 250,
+    voucherCode: "MINDANAO250",
+    sukiDiscountAmount: 0,
+    totalPaid: 2500,
+    sukiPointsEarned: 250,
+    paymentMethod: "Maya",
+    status: "confirmed",
+    createdAt: "2026-10-08T10:30:00.000Z",
+    qrCodeToken: "MTTH-QR-B441C2-SECURE"
   }
 ];
-var vouchersStore = [...MOCK_VOUCHERS];
-var sukiStore = { ...INITIAL_SUKI_ACCOUNT };
+
+// server.ts
+dotenv.config();
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = path.dirname(__filename);
+var app = express();
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+var DB_FILE = path.join(__dirname, "server-db.json");
+var dbState = {};
+try {
+  if (fs.existsSync(DB_FILE)) {
+    const raw = fs.readFileSync(DB_FILE, "utf-8");
+    if (raw && raw.trim().length > 0) {
+      dbState = JSON.parse(raw);
+    }
+  }
+} catch (err) {
+  console.warn("Notice: Rebuilding DB state from defaults:", err);
+}
+var schedulesStore = Array.isArray(dbState.schedules) && dbState.schedules.length > 0 ? dbState.schedules : [...MOCK_SCHEDULES];
+var vouchersStore = Array.isArray(dbState.vouchers) && dbState.vouchers.length > 0 ? dbState.vouchers : [...MOCK_VOUCHERS];
+var bookingsStore = Array.isArray(dbState.bookings) && dbState.bookings.length > 0 ? dbState.bookings : [...DEFAULT_SAMPLE_BOOKINGS];
+var customersKycStore = Array.isArray(dbState.customersKyc) && dbState.customersKyc.length > 0 ? dbState.customersKyc : [...MOCK_CUSTOMERS_KYC];
+var subAdminsStore = Array.isArray(dbState.subAdmins) && dbState.subAdmins.length > 0 ? dbState.subAdmins : [
+  {
+    id: "sub-super-admin",
+    name: "Mark Kenneth Ulgasan",
+    email: "markkennethulgasan@gmail.com",
+    role: "Super Admin",
+    status: "Active",
+    permissions: ["Full Access", "Super Admin", "Manage Bookings", "Manage Operators", "Issue Refunds", "Site Settings"],
+    createdAt: "2026-10-01",
+    lastActive: "Online now"
+  },
+  {
+    id: "sub-1",
+    name: "Carlos Mendoza",
+    email: "carlos.ops@mtth.ph",
+    role: "Operations Admin",
+    status: "Active",
+    permissions: ["Manage Bookings", "Manage Operators", "Issue Refunds"],
+    createdAt: "2026-08-12",
+    lastActive: "10 mins ago"
+  },
+  {
+    id: "sub-2",
+    name: "Eileen Dalisay",
+    email: "eileen.ticketing@mtth.ph",
+    role: "Ticketing Agent",
+    status: "Active",
+    permissions: ["Manage Bookings", "Issue Tickets"],
+    createdAt: "2026-09-01",
+    lastActive: "1 hour ago"
+  },
+  {
+    id: "sub-3",
+    name: "Ramon Bautista",
+    email: "ramon.support@mtth.ph",
+    role: "Support Agent",
+    status: "Active",
+    permissions: ["Manage Support", "Review Inquiries"],
+    createdAt: "2026-09-15",
+    lastActive: "Yesterday"
+  }
+];
+var siteSettingsStore = dbState.siteSettings || {
+  siteName: "MTTH",
+  siteSubtitle: "Mindanao",
+  tagline: "Your Journey Starts Here",
+  logoUrl: "",
+  contactEmail: "support@mtth.ph",
+  contactPhone: "+63 88 123 4567",
+  announcementText: "Mindanao Travel Week \u2014 Earn 2X Suki Points on selected routes",
+  announcementActive: true,
+  allowNewRegistrations: true,
+  currency: "PHP (\u20B1)"
+};
+var sukiStore = dbState.sukiAccount || { ...INITIAL_SUKI_ACCOUNT };
+var registeredUsersStore = Array.isArray(dbState.registeredUsers) ? dbState.registeredUsers : [];
 var pointHistoryStore = [...MOCK_POINT_HISTORY];
 var supportTicketsStore = [...MOCK_SUPPORT_TICKETS];
 var notificationsStore = [...MOCK_NOTIFICATIONS];
+var saveDb = () => {
+  try {
+    const data = {
+      schedules: schedulesStore,
+      vouchers: vouchersStore,
+      bookings: bookingsStore,
+      customersKyc: customersKycStore,
+      subAdmins: subAdminsStore,
+      siteSettings: siteSettingsStore,
+      sukiAccount: sukiStore,
+      registeredUsers: registeredUsersStore
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+  } catch (err) {
+    console.error("Failed to write to DB_FILE:", err);
+  }
+};
+saveDb();
+var stateVersion = Date.now();
+var sseClients = /* @__PURE__ */ new Set();
+var broadcastState = () => {
+  stateVersion = Date.now();
+  const payload = JSON.stringify({
+    type: "update",
+    version: stateVersion,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    data: {
+      schedules: schedulesStore,
+      vouchers: vouchersStore,
+      bookings: bookingsStore,
+      customersKyc: customersKycStore,
+      subAdmins: subAdminsStore,
+      siteSettings: siteSettingsStore,
+      sukiAccount: sukiStore,
+      registeredUsers: registeredUsersStore
+    }
+  });
+  const message = `data: ${payload}
+
+`;
+  for (const client of Array.from(sseClients)) {
+    try {
+      client.write(message);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+};
 var apiKey = process.env.GEMINI_API_KEY;
 var ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 app.get("/api/health", (req, res) => {
@@ -1172,7 +1426,7 @@ app.get("/api/operators", (req, res) => {
 });
 app.get("/api/schedules", (req, res) => {
   const { origin, destination, transportType, date } = req.query;
-  let schedules = [...MOCK_SCHEDULES];
+  let schedules = [...schedulesStore];
   if (origin && typeof origin === "string") {
     schedules = schedules.filter((s) => s.origin.toLowerCase().includes(origin.toLowerCase()));
   }
@@ -1222,7 +1476,7 @@ app.post("/api/bookings", (req, res) => {
   const newBooking = {
     id: `bk-${Date.now()}`,
     bookingCode: `MTTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-    userId: sukiStore.userId,
+    userId: bookingData.userId || sukiStore.userId || "guest-user",
     ...bookingData,
     status: "confirmed",
     createdAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -1248,7 +1502,40 @@ app.post("/api/bookings", (req, res) => {
     read: false,
     link: "/my-trips"
   });
+  saveDb();
+  broadcastState();
   res.json(newBooking);
+});
+app.get("/api/tickets/verify/:code", (req, res) => {
+  const query = (req.params.code || "").trim().toLowerCase();
+  if (!query) {
+    return res.status(400).json({ found: false, error: "Reference number is required" });
+  }
+  const cleanQuery = query.replace(/[^a-z0-9]/g, "");
+  const match = bookingsStore.find((b) => {
+    const code = (b.bookingCode || "").toLowerCase();
+    const id = (b.id || "").toLowerCase();
+    const qr = (b.qrCodeToken || "").toLowerCase();
+    const cleanCode = code.replace(/[^a-z0-9]/g, "");
+    const cleanQr = qr.replace(/[^a-z0-9]/g, "");
+    return code === query || id === query || qr === query || cleanCode === cleanQuery || cleanQr.includes(cleanQuery) || cleanQuery.length >= 6 && cleanCode.includes(cleanQuery);
+  });
+  if (match) {
+    res.json({
+      found: true,
+      verified: match.status === "confirmed",
+      status: match.status,
+      booking: match,
+      verifiedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      authenticityCertificate: `MTTH-AUTH-DOT-${match.bookingCode}-${Date.now().toString(36).toUpperCase()}`
+    });
+  } else {
+    res.json({
+      found: false,
+      verified: false,
+      error: `Ticket reference "${req.params.code}" was not found in the verified ticketing ledger.`
+    });
+  }
 });
 app.post("/api/bookings/:id/cancel", (req, res) => {
   const { id } = req.body;
@@ -1263,6 +1550,8 @@ app.post("/api/bookings/:id/cancel", (req, res) => {
     }
     return b;
   });
+  saveDb();
+  broadcastState();
   res.json({ success: true, bookings: bookingsStore });
 });
 app.get("/api/support", (req, res) => {
@@ -1305,6 +1594,84 @@ app.post("/api/ai/recommend", async (req, res) => {
     console.error("Gemini AI error:", error);
     res.status(500).json({ error: "Failed to generate AI recommendation" });
   }
+});
+app.get("/api/admin/state", (req, res) => {
+  res.json({
+    version: stateVersion,
+    schedules: schedulesStore,
+    vouchers: vouchersStore,
+    bookings: bookingsStore,
+    customersKyc: customersKycStore,
+    subAdmins: subAdminsStore,
+    siteSettings: siteSettingsStore,
+    sukiAccount: sukiStore
+  });
+});
+app.get("/api/admin/state/stream", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "Access-Control-Allow-Origin": "*"
+  });
+  const initialPayload = JSON.stringify({
+    type: "sync",
+    version: stateVersion,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    data: {
+      schedules: schedulesStore,
+      vouchers: vouchersStore,
+      bookings: bookingsStore,
+      customersKyc: customersKycStore,
+      subAdmins: subAdminsStore,
+      siteSettings: siteSettingsStore,
+      sukiAccount: sukiStore
+    }
+  });
+  res.write(`data: ${initialPayload}
+
+`);
+  sseClients.add(res);
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(": heartbeat\n\n");
+    } catch {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    }
+  }, 25e3);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
+});
+app.get("/api/admin/state/version", (req, res) => {
+  res.json({
+    version: stateVersion,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  });
+});
+app.post("/api/admin/settings", (req, res) => {
+  const newSettings = req.body;
+  if (newSettings && typeof newSettings === "object") {
+    siteSettingsStore = { ...siteSettingsStore, ...newSettings };
+    saveDb();
+    broadcastState();
+  }
+  res.json({ success: true, version: stateVersion, siteSettings: siteSettingsStore });
+});
+app.post("/api/admin/state", (req, res) => {
+  const { schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount } = req.body;
+  if (schedules) schedulesStore = schedules;
+  if (vouchers) vouchersStore = vouchers;
+  if (bookings) bookingsStore = bookings;
+  if (customersKyc) customersKycStore = customersKyc;
+  if (subAdmins) subAdminsStore = subAdmins;
+  if (siteSettings) siteSettingsStore = siteSettings;
+  if (sukiAccount) sukiStore = sukiAccount;
+  saveDb();
+  broadcastState();
+  res.json({ success: true, version: stateVersion });
 });
 app.get("/api/admin/metrics", (req, res) => {
   res.json({

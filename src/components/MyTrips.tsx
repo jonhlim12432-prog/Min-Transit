@@ -5,6 +5,7 @@ import { Ticket, Calendar, QrCode, XCircle, CheckCircle2, ArrowRight } from 'luc
 interface MyTripsProps {
   bookings: Booking[];
   onViewTicket: (booking: Booking) => void;
+  onVerifyTicket?: (booking: Booking) => void;
   onCancelBooking: (bookingId: string) => void;
   onExploreDestinations: () => void;
 }
@@ -12,6 +13,7 @@ interface MyTripsProps {
 export const MyTrips: React.FC<MyTripsProps> = ({
   bookings,
   onViewTicket,
+  onVerifyTicket,
   onCancelBooking,
   onExploreDestinations
 }) => {
@@ -106,21 +108,33 @@ export const MyTrips: React.FC<MyTripsProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <button
-                  onClick={() => onViewTicket(b)}
-                  className="flex items-center space-x-2 bg-teal-600 hover:bg-teal-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow"
-                >
-                  <QrCode className="w-4 h-4" />
-                  <span>Digital Pass</span>
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => onViewTicket(b)}
+                    className="flex items-center space-x-1.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow-sm transition-transform active:scale-95"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span>Preview & Download Pass</span>
+                  </button>
+
+                  {onVerifyTicket && (
+                    <button
+                      onClick={() => onVerifyTicket(b)}
+                      className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs transition-colors"
+                      title="Verify Authenticity"
+                    >
+                      <span>Verify</span>
+                    </button>
+                  )}
+                </div>
 
                 {b.status === 'confirmed' && (
                   <button
                     onClick={() => onCancelBooking(b.id)}
                     className="text-xs text-rose-600 font-bold hover:underline"
                   >
-                    Cancel Booking
+                    Cancel
                   </button>
                 )}
               </div>

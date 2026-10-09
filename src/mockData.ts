@@ -1,4 +1,4 @@
-import { Destination, Operator, Schedule, Voucher, Promotion, TravelGuide, Review, SukiAccount, PointHistoryItem, SupportTicket, NotificationItem, UserProfile } from './types';
+import { Destination, Operator, Schedule, Voucher, Promotion, TravelGuide, Review, SukiAccount, PointHistoryItem, SupportTicket, NotificationItem, UserProfile, Booking } from './types';
 
 export const MOCK_DESTINATIONS: Destination[] = [
   {
@@ -1205,5 +1205,83 @@ export const MOCK_NOTIFICATIONS: NotificationItem[] = [
     timestamp: '2 days ago',
     read: true,
     link: '/deals'
+  }
+];
+
+export const DEFAULT_SAMPLE_BOOKINGS: Booking[] = [
+  {
+    id: 'bk-sample-1',
+    bookingCode: 'MTTH-8F92A1',
+    userId: 'guest-user',
+    scheduleId: 'sch-1',
+    transportType: 'ferry',
+    operatorName: 'SuperFerry Mindanao',
+    operatorLogo: 'SFM',
+    origin: 'Cagayan de Oro',
+    destination: 'Camiguin Island',
+    departureTime: '2026-10-10T06:00:00',
+    arrivalTime: '2026-10-10T09:30:00',
+    passengers: [
+      {
+        fullName: 'Juan Dela Cruz',
+        dob: '1992-05-14',
+        gender: 'male',
+        mobile: '+63 917 555 1234',
+        email: 'juan.delacruz@gmail.com',
+        passengerType: 'adult',
+        seatNumber: 'Seat 14A'
+      }
+    ],
+    selectedClass: 'Tourist Class',
+    baseFare: 850,
+    terminalFee: 30,
+    serviceFee: 50,
+    taxes: 0,
+    discountAmount: 0,
+    sukiDiscountAmount: 0,
+    totalPaid: 930,
+    sukiPointsEarned: 93,
+    paymentMethod: 'GCash',
+    status: 'confirmed',
+    createdAt: '2026-10-08T08:00:00.000Z',
+    qrCodeToken: 'MTTH-QR-8F92A1-SECURE'
+  },
+  {
+    id: 'bk-sample-2',
+    bookingCode: 'MTTH-B441C2',
+    userId: 'guest-user',
+    scheduleId: 'sch-4',
+    transportType: 'flight',
+    operatorName: 'Philippine Airlines (PAL Express)',
+    operatorLogo: 'PR',
+    origin: 'Davao City',
+    destination: 'Siargao Island',
+    departureTime: '2026-10-12T09:15:00',
+    arrivalTime: '2026-10-12T10:15:00',
+    passengers: [
+      {
+        fullName: 'Maria Clara Santos',
+        dob: '1996-11-20',
+        gender: 'female',
+        mobile: '+63 918 888 4321',
+        email: 'maria.santos@gmail.com',
+        passengerType: 'adult',
+        seatNumber: 'Seat 03F'
+      }
+    ],
+    selectedClass: 'Economy Premium',
+    baseFare: 2450,
+    terminalFee: 200,
+    serviceFee: 100,
+    taxes: 0,
+    discountAmount: 250,
+    voucherCode: 'MINDANAO250',
+    sukiDiscountAmount: 0,
+    totalPaid: 2500,
+    sukiPointsEarned: 250,
+    paymentMethod: 'Maya',
+    status: 'confirmed',
+    createdAt: '2026-10-08T10:30:00.000Z',
+    qrCodeToken: 'MTTH-QR-B441C2-SECURE'
   }
 ];

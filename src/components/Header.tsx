@@ -13,6 +13,7 @@ interface HeaderProps {
   onOpenProfile: () => void;
   onOpenNotifications: () => void;
   onOpenAIConcierge: () => void;
+  onOpenVerifyTicket?: () => void;
   logoUrl?: string;
 }
 
@@ -24,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenProfile,
   onOpenNotifications,
   onOpenAIConcierge,
+  onOpenVerifyTicket,
   logoUrl
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -98,6 +100,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Utilities */}
           <div className="hidden md:flex items-center space-x-3">
+            {/* Verify Ticket Button */}
+            {onOpenVerifyTicket && (
+              <button
+                onClick={onOpenVerifyTicket}
+                className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700/80 border border-teal-500/40 text-teal-300 hover:text-white px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-sm"
+                title="Verify Ticket by Reference Number or QR Code"
+              >
+                <ShieldCheck className="w-4 h-4 text-teal-400" />
+                <span>Verify Ticket</span>
+              </button>
+            )}
+
             {/* AI Assistant Button */}
             <button
               onClick={onOpenAIConcierge}
@@ -194,6 +208,19 @@ export const Header: React.FC<HeaderProps> = ({
               <span>AI</span>
             </button>
           </div>
+
+          {onOpenVerifyTicket && (
+            <button
+              onClick={() => {
+                onOpenVerifyTicket();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-bold bg-teal-950/60 border border-teal-500/30 text-teal-300 hover:bg-teal-900 transition-colors"
+            >
+              <ShieldCheck className="w-5 h-5 text-teal-400" />
+              <span>Verify Ticket (QR / Ref #)</span>
+            </button>
+          )}
 
           {navItems.map((item) => {
             const Icon = item.icon;

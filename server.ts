@@ -17,7 +17,8 @@ import {
   MOCK_POINT_HISTORY, 
   MOCK_SUPPORT_TICKETS, 
   MOCK_NOTIFICATIONS,
-  MOCK_CUSTOMERS_KYC 
+  MOCK_CUSTOMERS_KYC,
+  DEFAULT_SAMPLE_BOOKINGS 
 } from './src/mockData';
 import { Booking } from './src/types';
 
@@ -35,15 +36,30 @@ const DB_FILE = path.join(__dirname, 'server-db.json');
 let dbState: any = {};
 try {
   if (fs.existsSync(DB_FILE)) {
-    dbState = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+    const raw = fs.readFileSync(DB_FILE, 'utf-8');
+    if (raw && raw.trim().length > 0) {
+      dbState = JSON.parse(raw);
+    }
   }
-} catch {}
+} catch (err) {
+  console.warn('Notice: Rebuilding DB state from defaults:', err);
+}
 
-let schedulesStore = dbState.schedules || [...MOCK_SCHEDULES];
-let vouchersStore = dbState.vouchers || [...MOCK_VOUCHERS];
-let bookingsStore: Booking[] = dbState.bookings || [];
-let customersKycStore = dbState.customersKyc || [...MOCK_CUSTOMERS_KYC];
-let subAdminsStore = dbState.subAdmins || [
+let schedulesStore = Array.isArray(dbState.schedules) && dbState.schedules.length > 0 ? dbState.schedules : [...MOCK_SCHEDULES];
+let vouchersStore = Array.isArray(dbState.vouchers) && dbState.vouchers.length > 0 ? dbState.vouchers : [...MOCK_VOUCHERS];
+let bookingsStore: Booking[] = Array.isArray(dbState.bookings) && dbState.bookings.length > 0 ? dbState.bookings : [...DEFAULT_SAMPLE_BOOKINGS];
+let customersKycStore = Array.isArray(dbState.customersKyc) && dbState.customersKyc.length > 0 ? dbState.customersKyc : [...MOCK_CUSTOMERS_KYC];
+let subAdminsStore = Array.isArray(dbState.subAdmins) && dbState.subAdmins.length > 0 ? dbState.subAdmins : [
+  {
+    id: 'sub-super-admin',
+    name: 'Mark Kenneth Ulgasan',
+    email: 'markkennethulgasan@gmail.com',
+    role: 'Super Admin',
+    status: 'Active',
+    permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Issue Refunds', 'Site Settings'],
+    createdAt: '2026-10-01',
+    lastActive: 'Online now'
+  },
   {
     id: 'sub-1',
     name: 'Carlos Mendoza',
@@ -88,23 +104,31 @@ let siteSettingsStore = dbState.siteSettings || {
   currency: 'PHP (₱)'
 };
 let sukiStore = dbState.sukiAccount || { ...INITIAL_SUKI_ACCOUNT };
+let registeredUsersStore = Array.isArray(dbState.registeredUsers) ? dbState.registeredUsers : [];
 let pointHistoryStore = [...MOCK_POINT_HISTORY];
 let supportTicketsStore = [...MOCK_SUPPORT_TICKETS];
 let notificationsStore = [...MOCK_NOTIFICATIONS];
 
 const saveDb = () => {
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify({
+    const data = {
       schedules: schedulesStore,
       vouchers: vouchersStore,
       bookings: bookingsStore,
       customersKyc: customersKycStore,
       subAdmins: subAdminsStore,
       siteSettings: siteSettingsStore,
-      sukiAccount: sukiStore
-    }, null, 2));
-  } catch {}
+      sukiAccount: sukiStore,
+      registeredUsers: registeredUsersStore
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to write to DB_FILE:', err);
+  }
 };
+
+// Guarantee DB file is initialized on server start
+saveDb();
 
 // Real-Time Cross-Device Synchronization Engine
 let stateVersion = Date.now();
@@ -123,7 +147,8 @@ const broadcastState = () => {
       customersKyc: customersKycStore,
       subAdmins: subAdminsStore,
       siteSettings: siteSettingsStore,
-      sukiAccount: sukiStore
+      sukiAccount: sukiStore,
+      registeredUsers: registeredUsersStore
     }
   });
 
@@ -234,7 +259,7 @@ app.post('/api/bookings', (req, res) => {
   const newBooking: Booking = {
     id: `bk-${Date.now()}`,
     bookingCode: `MTTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-    userId: sukiStore.userId,
+    userId: bookingData.userId || sukiStore.userId || 'guest-user',
     ...bookingData,
     status: 'confirmed',
     createdAt: new Date().toISOString(),
@@ -270,6 +295,44 @@ app.post('/api/bookings', (req, res) => {
   broadcastState();
 
   res.json(newBooking);
+});
+
+// Official Digital Ticket Verification Endpoint: Look up by Reference Number, Booking Code or QR Token
+app.get('/api/tickets/verify/:code', (req, res) => {
+  const query = (req.params.code || '').trim().toLowerCase();
+  if (!query) {
+    return res.status(400).json({ found: false, error: 'Reference number is required' });
+  }
+
+  const cleanQuery = query.replace(/[^a-z0-9]/g, '');
+
+  const match = bookingsStore.find((b: any) => {
+    const code = (b.bookingCode || '').toLowerCase();
+    const id = (b.id || '').toLowerCase();
+    const qr = (b.qrCodeToken || '').toLowerCase();
+    const cleanCode = code.replace(/[^a-z0-9]/g, '');
+    const cleanQr = qr.replace(/[^a-z0-9]/g, '');
+
+    return code === query || id === query || qr === query ||
+           cleanCode === cleanQuery || cleanQr.includes(cleanQuery) || (cleanQuery.length >= 6 && cleanCode.includes(cleanQuery));
+  });
+
+  if (match) {
+    res.json({
+      found: true,
+      verified: match.status === 'confirmed',
+      status: match.status,
+      booking: match,
+      verifiedAt: new Date().toISOString(),
+      authenticityCertificate: `MTTH-AUTH-DOT-${match.bookingCode}-${Date.now().toString(36).toUpperCase()}`
+    });
+  } else {
+    res.json({
+      found: false,
+      verified: false,
+      error: `Ticket reference "${req.params.code}" was not found in the verified ticketing ledger.`
+    });
+  }
 });
 
 app.post('/api/bookings/:id/cancel', (req, res) => {

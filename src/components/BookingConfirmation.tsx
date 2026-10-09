@@ -6,6 +6,7 @@ interface BookingConfirmationProps {
   booking: Booking;
   onViewTrips: () => void;
   onViewDigitalTicket: (booking: Booking) => void;
+  onVerifyTicket?: (booking: Booking) => void;
   onHome: () => void;
 }
 
@@ -13,6 +14,7 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({
   booking,
   onViewTrips,
   onViewDigitalTicket,
+  onVerifyTicket,
   onHome
 }) => {
   return (
@@ -73,18 +75,28 @@ export const BookingConfirmation: React.FC<BookingConfirmationProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
           <button
             onClick={() => onViewDigitalTicket(booking)}
-            className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-extrabold px-8 py-4 rounded-2xl shadow-lg shadow-teal-500/25 text-sm"
+            className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-extrabold px-6 py-3.5 rounded-2xl shadow-lg shadow-teal-500/25 text-sm active:scale-95 transition-transform"
           >
             <QrCode className="w-5 h-5" />
-            <span>View Digital Ticket & QR</span>
+            <span>Preview & Download Ticket</span>
           </button>
+
+          {onVerifyTicket && (
+            <button
+              onClick={() => onVerifyTicket(booking)}
+              className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold px-6 py-3.5 rounded-2xl text-sm transition-colors"
+            >
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              <span>Verify Ticket (QR / Ref #)</span>
+            </button>
+          )}
 
           <button
             onClick={onViewTrips}
-            className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-8 py-4 rounded-2xl text-sm"
+            className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-3.5 rounded-2xl text-sm transition-colors"
           >
             <Ticket className="w-5 h-5" />
             <span>Go to My Trips</span>

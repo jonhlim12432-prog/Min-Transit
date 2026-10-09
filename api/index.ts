@@ -12,7 +12,8 @@ import {
   MOCK_POINT_HISTORY, 
   MOCK_SUPPORT_TICKETS, 
   MOCK_NOTIFICATIONS,
-  MOCK_CUSTOMERS_KYC
+  MOCK_CUSTOMERS_KYC,
+  DEFAULT_SAMPLE_BOOKINGS
 } from '../src/mockData';
 import { Booking } from '../src/types';
 
@@ -42,7 +43,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 // Serverless persistent memory stores
 let schedulesStore = [...MOCK_SCHEDULES];
 let vouchersStore = [...MOCK_VOUCHERS];
-let bookingsStore: Booking[] = [];
+let bookingsStore: Booking[] = [...DEFAULT_SAMPLE_BOOKINGS];
 let customersKycStore = [...MOCK_CUSTOMERS_KYC];
 let subAdminsStore = [
   {
@@ -234,6 +235,44 @@ app.post('/api/bookings', (req: Request, res: Response) => {
   });
 
   res.json(newBooking);
+});
+
+// Official Digital Ticket Verification Endpoint: Look up by Reference Number, Booking Code or QR Token
+app.get('/api/tickets/verify/:code', (req: Request, res: Response) => {
+  const query = (req.params.code || '').trim().toLowerCase();
+  if (!query) {
+    return res.status(400).json({ found: false, error: 'Reference number is required' });
+  }
+
+  const cleanQuery = query.replace(/[^a-z0-9]/g, '');
+
+  const match = bookingsStore.find((b: any) => {
+    const code = (b.bookingCode || '').toLowerCase();
+    const id = (b.id || '').toLowerCase();
+    const qr = (b.qrCodeToken || '').toLowerCase();
+    const cleanCode = code.replace(/[^a-z0-9]/g, '');
+    const cleanQr = qr.replace(/[^a-z0-9]/g, '');
+
+    return code === query || id === query || qr === query ||
+           cleanCode === cleanQuery || cleanQr.includes(cleanQuery) || (cleanQuery.length >= 6 && cleanCode.includes(cleanQuery));
+  });
+
+  if (match) {
+    res.json({
+      found: true,
+      verified: match.status === 'confirmed',
+      status: match.status,
+      booking: match,
+      verifiedAt: new Date().toISOString(),
+      authenticityCertificate: `MTTH-AUTH-DOT-${match.bookingCode}-${Date.now().toString(36).toUpperCase()}`
+    });
+  } else {
+    res.json({
+      found: false,
+      verified: false,
+      error: `Ticket reference "${req.params.code}" was not found in the verified ticketing ledger.`
+    });
+  }
 });
 
 app.post('/api/bookings/:id/cancel', (req: Request, res: Response) => {
