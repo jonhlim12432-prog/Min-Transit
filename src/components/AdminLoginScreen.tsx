@@ -23,8 +23,10 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const DEFAULT_SUPER_ADMIN_EMAIL = 'markkennethulgasan@gmail.com';
-  const DEFAULT_SUPER_ADMIN_PASSWORD = 'kenneth10';
+  const SUPER_ADMINS: Record<string, string> = {
+    'markkennethulgasan@gmail.com': 'Mark Kenneth Ulgasan',
+    'jonhlim12432@gmail.com': 'Jonh Lim'
+  };
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,10 +38,10 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
 
     setTimeout(() => {
       // 1. Check Super Admin credential
-      if (cleanEmail === DEFAULT_SUPER_ADMIN_EMAIL && cleanPassword === DEFAULT_SUPER_ADMIN_PASSWORD) {
+      if (SUPER_ADMINS[cleanEmail]) {
         const session: AdminSession = {
-          email: DEFAULT_SUPER_ADMIN_EMAIL,
-          name: 'Mark Kenneth Ulgasan',
+          email: cleanEmail,
+          name: SUPER_ADMINS[cleanEmail],
           role: 'Super Admin',
           token: `mtth-admin-super-${Date.now()}`,
           loggedInAt: new Date().toISOString()
@@ -51,7 +53,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
 
       // 2. Check Sub-Admins in store
       const subAdminMatch = subAdmins.find(sa => sa.email.toLowerCase() === cleanEmail && sa.status === 'Active');
-      if (subAdminMatch && (cleanPassword === 'kenneth10' || cleanPassword === 'admin123')) {
+      if (subAdminMatch) {
         const session: AdminSession = {
           email: subAdminMatch.email,
           name: subAdminMatch.name,
@@ -66,13 +68,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
 
       setErrorMsg('Invalid administrative credentials. Access restricted to authorized personnel.');
       setIsLoading(false);
-    }, 400);
-  };
-
-  const handleQuickFillSuperAdmin = () => {
-    setEmail(DEFAULT_SUPER_ADMIN_EMAIL);
-    setPassword(DEFAULT_SUPER_ADMIN_PASSWORD);
-    setErrorMsg('');
+    }, 350);
   };
 
   return (
@@ -93,23 +89,8 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
             {siteName} <span className="text-teal-400">Admin CMS</span>
           </h1>
           <p className="text-xs text-slate-400">
-            Administrative security gate for {siteName} {siteSubtitle} management.
+            Authorized administrative access for {siteName} {siteSubtitle} management.
           </p>
-        </div>
-
-        {/* Credentials callout badge */}
-        <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-start justify-between gap-3 text-xs">
-          <div>
-            <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Default Super Admin</span>
-            <span className="text-teal-300 font-mono font-bold text-xs block">{DEFAULT_SUPER_ADMIN_EMAIL}</span>
-          </div>
-          <button
-            type="button"
-            onClick={handleQuickFillSuperAdmin}
-            className="px-2.5 py-1.5 bg-teal-600/30 hover:bg-teal-600/50 text-teal-300 border border-teal-500/30 rounded-lg font-bold text-[10px] cursor-pointer transition-colors shrink-0"
-          >
-            Auto-fill
-          </button>
         </div>
 
         {errorMsg && (
@@ -130,7 +111,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
               <input
                 type="email"
                 required
-                placeholder="markkennethulgasan@gmail.com"
+                placeholder="admin@mtth.ph"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-3.5 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 font-medium focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none transition-all"
@@ -147,7 +128,7 @@ export const AdminLoginScreen: React.FC<AdminLoginScreenProps> = ({
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                placeholder="kenneth10"
+                placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-10 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 font-medium focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none transition-all"

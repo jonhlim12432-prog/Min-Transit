@@ -101,27 +101,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     selfieUploaded: !!userProfile.kyc.selfieUrl
   });
 
-  // Valid Philippine Demo ID Presets for 1-click autofill testing
-  const DEMO_ID_PRESETS = [
-    { type: 'philsys_national_id', label: 'PhilSys National ID', number: '4829-1092-3849-1102' },
-    { type: 'ph_passport', label: 'Philippine Passport', number: 'P8920192A' },
-    { type: 'drivers_license', label: "Driver's License", number: 'N02-18-092831' },
-    { type: 'umid', label: 'UMID', number: '0033-9182049-1' }
-  ];
-
-  const handleAutoFillDemoId = (preset?: typeof DEMO_ID_PRESETS[0]) => {
-    const selected = preset || DEMO_ID_PRESETS[0];
-    setKycForm({
-      idType: selected.type,
-      idNumber: selected.number,
-      frontUploaded: true,
-      backUploaded: true,
-      selfieUploaded: true
-    });
-    setSaveSuccessMsg(`Auto-filled valid ${selected.label} and mock identity documents!`);
-    setTimeout(() => setSaveSuccessMsg(''), 4000);
-  };
-
   const handleClearKycForm = () => {
     setKycForm({
       idType: 'philsys_national_id',
@@ -682,44 +661,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     {userProfile.kyc.status === 'verified' ? 'Update ID Information' : 'Submit Philippine Government ID'}
                   </h4>
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleAutoFillDemoId()}
-                      className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 font-bold px-2.5 py-1 rounded-lg text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
-                      title="Auto-fill with official Philippine sample ID format and document verification"
-                    >
-                      <Sparkles className="w-3 h-3 text-teal-600" />
-                      <span>Sample ID Format</span>
-                    </button>
                     {kycForm.idNumber && (
                       <button
                         type="button"
                         onClick={handleClearKycForm}
-                        className="text-slate-400 hover:text-rose-600 text-[11px] font-semibold px-2 py-1"
+                        className="text-slate-400 hover:text-rose-600 text-[11px] font-semibold px-2 py-1 cursor-pointer"
                       >
                         Clear
                       </button>
                     )}
                   </div>
-                </div>
-
-                {/* Quick 1-Click Valid Sample ID Selector Chips */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center gap-1.5 overflow-x-auto text-[11px]">
-                  <span className="text-slate-500 font-bold whitespace-nowrap text-[10px] uppercase tracking-wide">ID Formats:</span>
-                  {DEMO_ID_PRESETS.map((p) => (
-                    <button
-                      key={p.type}
-                      type="button"
-                      onClick={() => handleAutoFillDemoId(p)}
-                      className={`px-2 py-1 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
-                        kycForm.idType === p.type && kycForm.idNumber === p.number
-                          ? 'bg-teal-600 text-white font-bold'
-                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

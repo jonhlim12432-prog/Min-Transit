@@ -23,6 +23,9 @@ export interface Destination {
   isFeatured?: boolean;
   searchCount?: number;
   favoriteCount?: number;
+  tags?: string[];
+  rating?: number;
+  reviewCount?: number;
 }
 
 export interface Operator {
@@ -38,6 +41,7 @@ export interface Operator {
     cancellation: string;
     baggage: string;
     boarding: string;
+    pets?: string;
   };
 }
 

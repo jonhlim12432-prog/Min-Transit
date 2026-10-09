@@ -340,33 +340,19 @@ export const TicketVerificationModal: React.FC<TicketVerificationModalProps> = (
                 </button>
               </form>
 
-              {/* Sample Quick-Fill Chips */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 pt-1">
-                <span className="text-[11px] font-bold text-slate-400">Quick test:</span>
-                <button
-                  type="button"
-                  onClick={() => { setSearchQuery('MTTH-8F92A1'); verifyCode('MTTH-8F92A1'); }}
-                  className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg border border-teal-200 transition-colors"
-                >
-                  MTTH-8F92A1 (Ferry)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setSearchQuery('MTTH-B441C2'); verifyCode('MTTH-B441C2'); }}
-                  className="bg-sky-50 hover:bg-sky-100 text-sky-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg border border-sky-200 transition-colors"
-                >
-                  MTTH-B441C2 (Flight)
-                </button>
-                {allBookings.length > 0 && allBookings[0] && (
+              {/* Recent Booking Quick-Fill if traveler has bookings */}
+              {allBookings.length > 0 && allBookings[0] && (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 pt-1">
+                  <span className="text-[11px] font-bold text-slate-400">Your recent trip:</span>
                   <button
                     type="button"
                     onClick={() => { setSearchQuery(allBookings[0].bookingCode); verifyCode(allBookings[0].bookingCode); }}
-                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg border border-purple-200 transition-colors"
+                    className="bg-teal-50 hover:bg-teal-100 text-teal-700 font-mono text-[11px] font-bold px-2.5 py-1 rounded-lg border border-teal-200 transition-colors cursor-pointer"
                   >
-                    Recent ({allBookings[0].bookingCode})
+                    {allBookings[0].bookingCode} ({allBookings[0].origin} → {allBookings[0].destination})
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 

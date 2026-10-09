@@ -9,11 +9,11 @@ import {
 } from 'lucide-react';
 import { 
   Schedule, Voucher, Booking, SukiAccount, TransportType, SiteSettings, SubAdmin, UserProfile, KycVerification,
-  RegisteredUser, AdminSession 
+  RegisteredUser, AdminSession, Destination, Operator 
 } from './types';
 import { 
   MOCK_SCHEDULES, MOCK_VOUCHERS, INITIAL_SUKI_ACCOUNT, INITIAL_USER_PROFILE, MOCK_CUSTOMERS_KYC, CustomerKycRecord,
-  createBlankUserProfile, createBlankSukiAccount, DEFAULT_SAMPLE_BOOKINGS 
+  createBlankUserProfile, createBlankSukiAccount, DEFAULT_SAMPLE_BOOKINGS, MOCK_DESTINATIONS, MOCK_OPERATORS 
 } from './mockData';
 
 import { SearchResults } from './components/SearchResults';
@@ -325,52 +325,65 @@ export default function App() {
     try { localStorage.setItem('mtth_bookings', JSON.stringify(bookings)); } catch {}
   }, [bookings]);
 
-  // Sub-Admins Store with Default Super Admin markkennethulgasan@gmail.com
+  // Destinations Store for CMS and Public Platform
+  const [destinations, setDestinations] = useState<Destination[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_destinations');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return MOCK_DESTINATIONS;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('mtth_destinations', JSON.stringify(destinations)); } catch {}
+  }, [destinations]);
+
+  // Operators Store for CMS and Route Planning
+  const [operators, setOperators] = useState<Operator[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtth_operators');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return MOCK_OPERATORS;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('mtth_operators', JSON.stringify(operators)); } catch {}
+  }, [operators]);
+
+  // Sub-Admins Store (Authorized Super Admins only, No Demo Accounts)
   const [subAdmins, setSubAdmins] = useState<SubAdmin[]>(() => {
     try {
       const saved = localStorage.getItem('mtth_subadmins');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter out dummy demo accounts from earlier mocks
+          const filtered = parsed.filter(sa => 
+            !['carlos.ops@mtth.ph', 'eileen.ticketing@mtth.ph', 'ramon.support@mtth.ph'].includes(sa.email.toLowerCase())
+          );
+          if (filtered.length > 0) return filtered;
+        }
+      }
     } catch {}
     return [
       {
-        id: 'sub-super-admin',
+        id: 'sub-super-admin-1',
         name: 'Mark Kenneth Ulgasan',
         email: 'markkennethulgasan@gmail.com',
         role: 'Super Admin',
         status: 'Active',
-        permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Issue Refunds', 'Site Settings'],
+        permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Manage Destinations', 'Issue Refunds', 'Site Settings'],
         createdAt: '2026-10-01',
         lastActive: 'Online now'
       },
       {
-        id: 'sub-1',
-        name: 'Carlos Mendoza',
-        email: 'carlos.ops@mtth.ph',
-        role: 'Operations Admin',
+        id: 'sub-super-admin-2',
+        name: 'Jonh Lim',
+        email: 'jonhlim12432@gmail.com',
+        role: 'Super Admin',
         status: 'Active',
-        permissions: ['Manage Bookings', 'Manage Operators', 'Issue Refunds'],
-        createdAt: '2026-08-12',
-        lastActive: '10 mins ago'
-      },
-      {
-        id: 'sub-2',
-        name: 'Eileen Dalisay',
-        email: 'eileen.ticketing@mtth.ph',
-        role: 'Ticketing Agent',
-        status: 'Active',
-        permissions: ['Manage Bookings', 'Issue Tickets'],
-        createdAt: '2026-09-01',
-        lastActive: '1 hour ago'
-      },
-      {
-        id: 'sub-3',
-        name: 'Ramon Bautista',
-        email: 'ramon.support@mtth.ph',
-        role: 'Support Agent',
-        status: 'Active',
-        permissions: ['Manage Support', 'Review Inquiries'],
-        createdAt: '2026-09-15',
-        lastActive: 'Yesterday'
+        permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Manage Destinations', 'Issue Refunds', 'Site Settings'],
+        createdAt: '2026-10-01',
+        lastActive: 'Online now'
       }
     ];
   });
@@ -532,6 +545,10 @@ export default function App() {
   schedulesRef.current = schedules;
   const vouchersRef = React.useRef(vouchers);
   vouchersRef.current = vouchers;
+  const destinationsRef = React.useRef(destinations);
+  destinationsRef.current = destinations;
+  const operatorsRef = React.useRef(operators);
+  operatorsRef.current = operators;
   const bookingsRef = React.useRef(bookings);
   bookingsRef.current = bookings;
   const customersKycRef = React.useRef(customersKyc);
@@ -546,6 +563,8 @@ export default function App() {
     siteSettings?: SiteSettings;
     schedules?: Schedule[];
     vouchers?: Voucher[];
+    destinations?: Destination[];
+    operators?: Operator[];
     bookings?: Booking[];
     customersKyc?: CustomerKycRecord[];
     subAdmins?: SubAdmin[];
@@ -556,6 +575,8 @@ export default function App() {
     const activeSiteSettings = overrides?.siteSettings ?? siteSettingsRef.current;
     const activeSchedules = overrides?.schedules ?? schedulesRef.current;
     const activeVouchers = overrides?.vouchers ?? vouchersRef.current;
+    const activeDestinations = overrides?.destinations ?? destinationsRef.current;
+    const activeOperators = overrides?.operators ?? operatorsRef.current;
     const activeBookings = overrides?.bookings ?? bookingsRef.current;
     const activeKyc = overrides?.customersKyc ?? customersKycRef.current;
     const activeSubAdmins = overrides?.subAdmins ?? subAdminsRef.current;
@@ -568,6 +589,8 @@ export default function App() {
       version: newVersion,
       schedules: activeSchedules,
       vouchers: activeVouchers,
+      destinations: activeDestinations,
+      operators: activeOperators,
       bookings: activeBookings,
       customersKyc: activeKyc,
       subAdmins: activeSubAdmins,
@@ -630,6 +653,14 @@ export default function App() {
       if (data.vouchers && Array.isArray(data.vouchers) && data.vouchers.length > 0) {
         setVouchers(data.vouchers);
         try { localStorage.setItem('mtth_vouchers', JSON.stringify(data.vouchers)); } catch {}
+      }
+      if (data.destinations && Array.isArray(data.destinations) && data.destinations.length > 0) {
+        setDestinations(data.destinations);
+        try { localStorage.setItem('mtth_destinations', JSON.stringify(data.destinations)); } catch {}
+      }
+      if (data.operators && Array.isArray(data.operators) && data.operators.length > 0) {
+        setOperators(data.operators);
+        try { localStorage.setItem('mtth_operators', JSON.stringify(data.operators)); } catch {}
       }
       if (data.bookings && Array.isArray(data.bookings)) {
         setBookings(data.bookings);
@@ -850,7 +881,8 @@ export default function App() {
   const [showAddDestinationModal, setShowAddDestinationModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [showAddBookingModal, setShowAddBookingModal] = useState(false);
-  const [refundCount, setRefundCount] = useState(27);
+  // Real pending refunds derived directly from bookings ledger
+  const refundCount = bookings.filter(b => b.refundStatus === 'requested').length;
 
   // Admin Interactive Entity Modals
   const [selectedKycForReview, setSelectedKycForReview] = useState<CustomerKycRecord | null>(null);
@@ -859,6 +891,24 @@ export default function App() {
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [editingSubAdmin, setEditingSubAdmin] = useState<SubAdmin | null>(null);
+  const [editingDestination, setEditingDestination] = useState<Destination | null>(null);
+  const [editingOperator, setEditingOperator] = useState<Operator | null>(null);
+
+  const [newDestinationForm, setNewDestinationForm] = useState({
+    name: '',
+    province: '',
+    category: 'islands',
+    heroImage: '',
+    shortDescription: '',
+    tags: 'Surf • Beaches • Island Life'
+  });
+
+  const [newOperatorForm, setNewOperatorForm] = useState({
+    name: '',
+    type: 'ferry' as TransportType,
+    contact: '',
+    description: ''
+  });
 
   // Admin Search & Filter States
   const [bookingSearchQuery, setBookingSearchQuery] = useState('');
@@ -1290,7 +1340,6 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
     });
     setBookings(updatedBookings);
     syncStateToServer({ bookings: updatedBookings });
-    if (refundCount > 0) setRefundCount(prev => prev - 1);
     showToast('Booking refunded and cancelled successfully!');
   };
 
@@ -1356,8 +1405,146 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
     showToast('Sub-admin status updated');
   };
 
+  // Admin Destination Actions
+  const handleSaveDestination = (updated: Destination) => {
+    const updatedList = destinations.map(d => d.id === updated.id ? updated : d);
+    setDestinations(updatedList);
+    syncStateToServer({ destinations: updatedList });
+    setEditingDestination(null);
+    showToast(`Destination ${updated.name} updated!`);
+  };
+
+  const handleDeleteDestination = (destId: string) => {
+    const updatedList = destinations.filter(d => d.id !== destId);
+    setDestinations(updatedList);
+    syncStateToServer({ destinations: updatedList });
+    showToast('Destination removed');
+  };
+
+  const handleCreateDestination = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDestinationForm.name.trim()) return;
+    const newDest: Destination = {
+      id: `dest-${Date.now()}`,
+      name: newDestinationForm.name.trim(),
+      slug: newDestinationForm.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      province: newDestinationForm.province.trim() || 'Mindanao',
+      region: 'Southern Philippines',
+      category: newDestinationForm.category as any,
+      rating: 4.9,
+      reviewCount: 1,
+      heroImage: newDestinationForm.heroImage.trim() || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=80',
+      shortDescription: newDestinationForm.shortDescription.trim() || `${newDestinationForm.name} in Mindanao`,
+      longDescription: newDestinationForm.shortDescription.trim() || `${newDestinationForm.name} in Mindanao`,
+      isFeatured: true,
+      bestTimeToVisit: 'Dry Season (Nov-May)',
+      recommendedDuration: '2-3 Days',
+      budgetEstimate: '₱3,500 - ₱7,000',
+      attractions: ['Sightseeing', 'Scenic Viewpoints'],
+      transportationOptions: ['Ferry', 'Bus', 'Van Transfer'],
+      nearbyAirports: ['CGY', 'DVO'],
+      nearbyPorts: ['Cagayan de Oro Port'],
+      nearbyTerminals: ['Agora Integrated Bus Terminal'],
+      travelTips: ['Bring local Philippine cash', 'Sun protection recommended'],
+      tags: newDestinationForm.tags.split('•').map(t => t.trim()).filter(Boolean),
+      activities: ['Sightseeing', 'Island Hopping', 'Travel Photography']
+    };
+    const updated = [newDest, ...destinations];
+    setDestinations(updated);
+    syncStateToServer({ destinations: updated });
+    setShowAddDestinationModal(false);
+    setNewDestinationForm({ name: '', province: '', category: 'islands', heroImage: '', shortDescription: '', tags: 'Surf • Beaches • Island Life' });
+    showToast(`Destination ${newDest.name} published across platform!`);
+  };
+
+  // Admin Operator Actions
+  const handleCreateOperator = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOperatorForm.name.trim()) return;
+    const newOp: Operator = {
+      id: `op-${Date.now()}`,
+      name: newOperatorForm.name.trim(),
+      type: newOperatorForm.type,
+      logo: newOperatorForm.type === 'flight' ? '✈️' : newOperatorForm.type === 'ferry' ? '🚢' : '🚌',
+      verified: true,
+      rating: 4.8,
+      reviewCount: 1,
+      description: newOperatorForm.description.trim() || 'Official transport operator partner serving Mindanao routes.',
+      policies: {
+        baggage: '15kg luggage per passenger included',
+        cancellation: 'Flexible rebooking within 24 hours of scheduled departure',
+        boarding: 'Please arrive at terminal 45 minutes prior to departure',
+        pets: 'Governed by local maritime / land transport regulation'
+      }
+    };
+    const updated = [newOp, ...operators];
+    setOperators(updated);
+    syncStateToServer({ operators: updated });
+    setShowAddOperatorModal(false);
+    setNewOperatorForm({ name: '', type: 'ferry', contact: '', description: '' });
+    showToast(`Operator ${newOp.name} onboarded!`);
+  };
+
+  const handleSaveOperator = (updatedOp: Operator) => {
+    const updated = operators.map(o => o.id === updatedOp.id ? updatedOp : o);
+    setOperators(updated);
+    syncStateToServer({ operators: updated });
+    setEditingOperator(null);
+    showToast(`Operator ${updatedOp.name} updated across platform!`);
+  };
+
+  const handleDeleteOperator = (opId: string) => {
+    const updated = operators.filter(o => o.id !== opId);
+    setOperators(updated);
+    syncStateToServer({ operators: updated });
+    showToast('Operator removed');
+  };
+
+  // Dynamic origins and destinations from active schedules and CMS destinations
+  const availableOrigins = React.useMemo(() => {
+    const set = new Set<string>();
+    schedules.forEach(s => { if (s.origin) set.add(s.origin.trim()); });
+    destinations.forEach(d => { if (d.name) set.add(d.name.trim()); });
+    const list = Array.from(set).sort();
+    return list.length > 0 ? list : ['Cagayan de Oro', 'Davao', 'General Santos', 'Zamboanga', 'Butuan'];
+  }, [schedules, destinations]);
+
+  const availableDestinations = React.useMemo(() => {
+    const set = new Set<string>();
+    schedules.forEach(s => { if (s.destination) set.add(s.destination.trim()); });
+    destinations.forEach(d => { if (d.name) set.add(d.name.trim()); });
+    const list = Array.from(set).sort();
+    return list.length > 0 ? list : ['Siargao', 'Camiguin', 'Cebu', 'Manila', 'Lake Sebu'];
+  }, [schedules, destinations]);
+
+  // Dynamic lowest fare calculations
+  const minFlightFare = React.useMemo(() => {
+    const fares = schedules.filter(s => s.transportType === 'flight').map(s => s.baseFare);
+    return fares.length > 0 ? Math.min(...fares) : 1299;
+  }, [schedules]);
+
+  const minFerryFare = React.useMemo(() => {
+    const fares = schedules.filter(s => s.transportType === 'ferry').map(s => s.baseFare);
+    return fares.length > 0 ? Math.min(...fares) : 450;
+  }, [schedules]);
+
+  const minBusFare = React.useMemo(() => {
+    const fares = schedules.filter(s => s.transportType === 'bus').map(s => s.baseFare);
+    return fares.length > 0 ? Math.min(...fares) : 350;
+  }, [schedules]);
+
+  // Sync document title with siteSettings
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = `${siteSettings.siteName} ${siteSettings.siteSubtitle} - ${siteSettings.tagline}`;
+    }
+  }, [siteSettings.siteName, siteSettings.siteSubtitle, siteSettings.tagline]);
+
   const handleSaveSettings = async () => {
     showToast('Saving site settings across all devices...');
+    if (typeof document !== 'undefined') {
+      document.title = `${siteSettings.siteName} ${siteSettings.siteSubtitle} - ${siteSettings.tagline}`;
+    }
     await syncStateToServer({ siteSettings });
     showToast('Site settings updated & broadcasted live to all devices!');
   };
@@ -1394,7 +1581,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
   const isAnyModalOpen = Boolean(
     aiModalOpen || profileModalOpen || notifModalOpen || vercelModalOpen ||
     userAuthModalOpen || selectedKycForReview || editingCustomer || editingBooking || editingSchedule ||
-    editingVoucher || editingSubAdmin || showAddRouteModal || showAddPromoModal ||
+    editingVoucher || editingSubAdmin || editingDestination || editingOperator || showAddRouteModal || showAddPromoModal ||
     showAddOperatorModal || showAddDestinationModal || showAddCustomerModal ||
     showAddSubAdminModal || digitalTicketBooking || showVerifyModal || mobileMenuOpen
   );
@@ -1538,6 +1725,8 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 { id: 'Bookings', icon: <Ticket className="w-4 h-4" />, label: 'Bookings' },
                 { id: 'Customers', icon: <ShieldCheck className="w-4 h-4" />, label: 'Customers & KYC' },
                 { id: 'Routes', icon: <RouteIcon className="w-4 h-4" />, label: 'Routes & Trips' },
+                { id: 'Destinations', icon: <MapPin className="w-4 h-4" />, label: 'Destinations CMS' },
+                { id: 'Operators', icon: <Bus className="w-4 h-4" />, label: 'Operators' },
                 { id: 'Promos', icon: <Tag className="w-4 h-4" />, label: 'Promo Vouchers' },
                 { id: 'SubAdmins', icon: <Users className="w-4 h-4" />, label: 'Sub-Admins & Roles' },
                 { id: 'Settings', icon: <Settings className="w-4 h-4" />, label: 'Site Settings & Logo' },
@@ -1576,24 +1765,26 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
 
                   <div className="admin-stats">
                     <div>
-                      <small>TODAY'S BOOKINGS</small>
-                      <b>{486 + bookings.length}</b>
-                      <span>↑ 18.4% this week</span>
+                      <small>RECORDED BOOKINGS</small>
+                      <b>{bookings.length}</b>
+                      <span>{bookings.filter(b => b.status === 'confirmed').length} confirmed bookings</span>
                     </div>
                     <div>
                       <small>GROSS SALES</small>
-                      <b>₱{(842650 + bookings.reduce((acc, b) => acc + b.totalPaid, 0)).toLocaleString()}</b>
-                      <span>↑ 12.7% growth</span>
+                      <b>₱{bookings.reduce((acc, b) => acc + (b.totalPaid || 0), 0).toLocaleString()}</b>
+                      <span>Live ledger balance</span>
                     </div>
                     <div>
                       <small>ACTIVE CUSTOMERS</small>
-                      <b>18,492</b>
-                      <span>↑ 8.2% Suki members</span>
+                      <b>{customersKyc.length || registeredUsers.length}</b>
+                      <span>Real traveler profiles</span>
                     </div>
                     <div>
                       <small>PENDING REFUNDS</small>
                       <b>{refundCount}</b>
-                      <span className="text-amber-500 font-bold">Needs review</span>
+                      <span className={refundCount > 0 ? "text-amber-500 font-bold" : "text-emerald-500 font-bold"}>
+                        {refundCount > 0 ? 'Needs review' : 'All resolved'}
+                      </span>
                     </div>
                   </div>
 
@@ -1638,10 +1829,15 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                         <h2>Route Performance</h2>
                       </div>
                       <div className="bars">
-                        <label>CDO → Cebu <b style={{ width: '88%' }}>88%</b></label>
-                        <label>Davao → Manila <b style={{ width: '76%' }}>76%</b></label>
-                        <label>CDO → Camiguin <b style={{ width: '68%' }}>68%</b></label>
-                        <label>Davao → Siargao <b style={{ width: '55%' }}>55%</b></label>
+                        {schedules.slice(0, 4).map((sch) => {
+                          const routeBookings = bookings.filter(b => b.origin === sch.origin && b.destination === sch.destination);
+                          const pct = bookings.length > 0 ? Math.min(100, Math.max(12, Math.round((routeBookings.length / bookings.length) * 100))) : 60;
+                          return (
+                            <label key={sch.id}>
+                              {sch.origin} → {sch.destination} <b style={{ width: `${pct}%` }}>{pct}%</b>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1655,9 +1851,12 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                       <button onClick={() => setShowAddPromoModal(true)}>+ Create Promo</button>
                       <button onClick={() => setShowAddOperatorModal(true)}>+ Add Operator</button>
                       <button onClick={() => {
-                        if (refundCount > 0) {
-                          setRefundCount(prev => prev - 1);
-                          showToast('Refund request reviewed and approved!');
+                        const requested = bookings.find(b => b.refundStatus === 'requested');
+                        if (requested) {
+                          handleRefundBooking(requested.id);
+                        } else {
+                          showToast(refundCount > 0 ? 'Reviewing refunds in Bookings ledger' : 'No pending refunds to review.');
+                          setAdminTab('Bookings');
                         }
                       }}>
                         Review Refunds <em>{refundCount}</em>
@@ -2238,6 +2437,148 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                                   onClick={() => handleDeleteSubAdmin(admin.id)}
                                 >
                                   Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: DESTINATIONS CMS */}
+              {adminTab === 'Destinations' && (
+                <div className="admin-panel space-y-4 animate-fadeIn">
+                  <div className="panel-head flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                    <div>
+                      <h2>Mindanao Tourism Destinations CMS</h2>
+                      <p className="text-xs text-slate-500">{destinations.length} destinations featured across the public website.</p>
+                    </div>
+                    <button className="primary flex items-center gap-1.5" onClick={() => setShowAddDestinationModal(true)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Add Destination</span>
+                    </button>
+                  </div>
+
+                  <div className="table-responsive">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Photo</th>
+                          <th>Destination</th>
+                          <th>Province / Region</th>
+                          <th>Category</th>
+                          <th>Tags</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {destinations.map((d) => (
+                          <tr key={d.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td>
+                              <img 
+                                src={d.heroImage} 
+                                alt={d.name} 
+                                className="w-14 h-10 rounded-lg object-cover border border-slate-200 shrink-0" 
+                              />
+                            </td>
+                            <td>
+                              <div className="font-bold text-slate-900 text-xs">{d.name}</div>
+                              <div className="text-[10px] text-slate-400 truncate max-w-xs">{d.shortDescription}</div>
+                            </td>
+                            <td className="text-xs text-slate-700">{d.province}</td>
+                            <td>
+                              <span className="font-extrabold text-[10px] uppercase bg-teal-50 text-teal-800 px-2 py-0.5 rounded border border-teal-200">
+                                {d.category}
+                              </span>
+                            </td>
+                            <td className="text-xs text-slate-500">{d.tags?.join(' • ') || 'Tourism'}</td>
+                            <td>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setEditingDestination(d)}
+                                  className="p-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                  title="Edit Destination Details"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDestination(d.id)}
+                                  className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold cursor-pointer"
+                                  title="Delete Destination"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: OPERATORS CMS */}
+              {adminTab === 'Operators' && (
+                <div className="admin-panel space-y-4 animate-fadeIn">
+                  <div className="panel-head flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                    <div>
+                      <h2>Partner Transport Operators</h2>
+                      <p className="text-xs text-slate-500">{operators.length} licensed bus lines, ferry operators, and airlines.</p>
+                    </div>
+                    <button className="primary flex items-center gap-1.5" onClick={() => setShowAddOperatorModal(true)}>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Onboard Operator</span>
+                    </button>
+                  </div>
+
+                  <div className="table-responsive">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Icon</th>
+                          <th>Operator Name</th>
+                          <th>Transport Mode</th>
+                          <th>Rating</th>
+                          <th>Description</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {operators.map((op) => (
+                          <tr key={op.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="text-2xl">{op.logo}</td>
+                            <td>
+                              <div className="font-bold text-slate-900 text-xs">{op.name}</div>
+                              <div className="text-[10px] text-teal-600 font-bold uppercase">{op.type}</div>
+                            </td>
+                            <td>
+                              <span className="font-extrabold text-[10px] uppercase bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                                {op.type}
+                              </span>
+                            </td>
+                            <td className="text-xs font-bold text-amber-600">⭐ {op.rating}</td>
+                            <td className="text-xs text-slate-500 max-w-xs truncate">{op.description}</td>
+                            <td>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setEditingOperator(op)}
+                                  className="p-1.5 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                  title="Edit Operator Details"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteOperator(op.id)}
+                                  className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold cursor-pointer"
+                                  title="Remove Operator"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </td>
@@ -3224,11 +3565,11 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
               <section className="hero">
                 <div className="hero-overlay"></div>
                 <div className="hero-content hero-copy">
-                  <div className="eyebrow"><label>DISCOVER MINDANAO</label></div>
+                  <div className="eyebrow"><label>DISCOVER {siteSettings.siteSubtitle?.toUpperCase() || 'MINDANAO'}</label></div>
                   <h1>Your Journey<br /><span>Starts Here.</span></h1>
-                  <p>Book flights, ferries, and buses across Mindanao while earning <b>Suki Rewards</b> on every journey.</p>
+                  <p>Book flights, ferries, and buses with <b>{siteSettings.siteName}</b> while earning <b>Suki Rewards</b> on every journey.</p>
                 </div>
-                <div className="hero-script script">More destinations.<br />More stories.<br />Mindanao.</div>
+                <div className="hero-script script">More destinations.<br />More stories.<br />{siteSettings.siteSubtitle || 'Mindanao'}.</div>
 
                 {/* Search Card */}
                 <section className="search-card searchbox" id="transport">
@@ -3261,11 +3602,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                       <small>FROM</small>
                       <MapPin className="w-3.5 h-3.5 text-teal-600" />
                       <select id="from" value={fromLoc} onChange={(e) => setFromLoc(e.target.value)}>
-                        <option>Cagayan de Oro</option>
-                        <option>Davao</option>
-                        <option>General Santos</option>
-                        <option>Zamboanga</option>
-                        <option>Butuan</option>
+                        {availableOrigins.map((orig) => (
+                          <option key={orig} value={orig}>{orig}</option>
+                        ))}
                       </select>
                     </label>
 
@@ -3277,11 +3616,9 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                       <small>TO</small>
                       <MapPin className="w-3.5 h-3.5 text-teal-600" />
                       <select id="to" value={toLoc} onChange={(e) => setToLoc(e.target.value)}>
-                        <option>Siargao</option>
-                        <option>Camiguin</option>
-                        <option>Cebu</option>
-                        <option>Manila</option>
-                        <option>Lake Sebu</option>
+                        {availableDestinations.map((dest) => (
+                          <option key={dest} value={dest}>{dest}</option>
+                        ))}
                       </select>
                     </label>
 
@@ -3331,7 +3668,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     <div>
                       <h3>Flights</h3>
                       <p>Fly across Mindanao</p>
-                      <strong>From ₱1,299</strong>
+                      <strong>From ₱{minFlightFare.toLocaleString()}</strong>
                       <button onClick={() => { setTransportTab('flight'); handleSearchTrips(); }}>Explore Flights →</button>
                     </div>
                   </article>
@@ -3343,7 +3680,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     <div>
                       <h3>Ferries</h3>
                       <p>Island hopping made easy</p>
-                      <strong>From ₱450</strong>
+                      <strong>From ₱{minFerryFare.toLocaleString()}</strong>
                       <button onClick={() => { setTransportTab('ferry'); handleSearchTrips(); }}>Find Ferries →</button>
                     </div>
                   </article>
@@ -3355,7 +3692,7 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     <div>
                       <h3>Buses</h3>
                       <p>Comfortable land journeys</p>
-                      <strong>From ₱350</strong>
+                      <strong>From ₱{minBusFare.toLocaleString()}</strong>
                       <button onClick={() => { setTransportTab('bus'); handleSearchTrips(); }}>Find Buses →</button>
                     </div>
                   </article>
@@ -3369,70 +3706,29 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     <h2>Explore <span>Mindanao</span></h2>
                     <p>Discover places worth traveling for.</p>
                   </div>
-                  <button className="link-btn" onClick={() => showToast('Displaying 20+ verified Mindanao destinations')}>
-                    View All Destinations →
+                  <button className="link-btn" onClick={() => showToast(`Displaying ${destinations.length} verified Mindanao destinations`)}>
+                    View All Destinations ({destinations.length}) →
                   </button>
                 </div>
                 <div className="destination-grid dest-grid">
-                  <article className="destination">
-                    <img src="https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=700&q=80" alt="Siargao" />
-                    <div>
-                      <h3>Siargao</h3>
-                      <p>Surigao del Norte</p>
-                      <small>• Surf • Island Life • Beaches</small>
-                      <button onClick={() => { setToLoc('Siargao'); handleSearchTrips(); }}>Explore →</button>
-                    </div>
-                  </article>
-
-                  <article className="destination">
-                    <img src="https://images.unsplash.com/photo-1505881502353-a1986add3762?auto=format&fit=crop&w=700&q=80" alt="Camiguin" />
-                    <div>
-                      <h3>Camiguin</h3>
-                      <p>Island Born of Fire</p>
-                      <small>• Hot Springs • Waterfalls • Beaches</small>
-                      <button onClick={() => { setToLoc('Camiguin'); handleSearchTrips(); }}>Explore →</button>
-                    </div>
-                  </article>
-
-                  <article className="destination">
-                    <img src="https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=700&q=80" alt="Samal Island" />
-                    <div>
-                      <h3>Samal Island</h3>
-                      <p>Davao del Norte</p>
-                      <small>• Resorts • Diving • Island Hopping</small>
-                      <button onClick={() => { setToLoc('Davao'); handleSearchTrips(); }}>Explore →</button>
-                    </div>
-                  </article>
-
-                  <article className="destination">
-                    <img src="https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=700&q=80" alt="Bukidnon" />
-                    <div>
-                      <h3>Bukidnon</h3>
-                      <p>The Highland Escape</p>
-                      <small>• Mountains • Farms • Adventure</small>
-                      <button onClick={() => { setToLoc('Cagayan de Oro'); handleSearchTrips(); }}>Explore →</button>
-                    </div>
-                  </article>
-
-                  <article className="destination">
-                    <img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=700&q=80" alt="Lake Sebu" />
-                    <div>
-                      <h3>Lake Sebu</h3>
-                      <p>South Cotabato</p>
-                      <small>• Culture • Nature • Adventure</small>
-                      <button onClick={() => { setToLoc('General Santos'); handleSearchTrips(); }}>Explore →</button>
-                    </div>
-                  </article>
-
-                  <article className="destination">
-                    <img src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=700&q=80" alt="Dahican" />
-                    <div>
-                      <h3>Dahican</h3>
-                      <p>Mati, Davao Oriental</p>
-                      <small>• Surf • Beach • Sunrise</small>
-                      <button onClick={() => { setToLoc('Davao'); handleSearchTrips(); }}>Explore →</button>
-                    </div>
-                  </article>
+                  {destinations.slice(0, 6).map((dest) => (
+                    <article key={dest.id} className="destination">
+                      <img src={dest.heroImage} alt={dest.name} />
+                      <div>
+                        <h3>{dest.name}</h3>
+                        <p>{dest.province}</p>
+                        <small>{dest.tags?.length ? `• ${dest.tags.join(' • ')}` : '• Island Life • Travel'}</small>
+                        <button onClick={() => { 
+                          if (availableDestinations.includes(dest.name)) {
+                            setToLoc(dest.name);
+                          }
+                          handleSearchTrips(); 
+                        }}>
+                          Explore →
+                        </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               </section>
 
@@ -3449,33 +3745,26 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     </button>
                   </div>
                   <div className="deal-grid dealgrid">
-                    <article className="deal blue" onClick={() => showToast('Code SUKI300 copied: ₱300 OFF Ferries!')}>
-                      <b>₱300 OFF</b>
-                      <strong>Ferry Tickets</strong>
-                      <small>Use code: SUKI300</small>
-                      <Ship className="w-10 h-10 opacity-30 absolute right-3 bottom-2 text-white" />
-                    </article>
-
-                    <article className="deal green" onClick={() => showToast('Code MINDANAO15 copied: 15% OFF Buses!')}>
-                      <b>15% OFF</b>
-                      <strong>Bus Tickets</strong>
-                      <small>Use code: MINDANAO15</small>
-                      <Bus className="w-10 h-10 opacity-30 absolute right-3 bottom-2 text-white" />
-                    </article>
-
-                    <article className="deal orange" onClick={() => showToast('Code FLYSUKI copied: ₱500 OFF Flights!')}>
-                      <b>₱500 OFF</b>
-                      <strong>Flight Booking</strong>
-                      <small>Use code: FLYSUKI</small>
-                      <Plane className="w-10 h-10 opacity-30 absolute right-3 bottom-2 text-white" />
-                    </article>
-
-                    <article className="deal purple" onClick={() => showToast('Weekend 2X Suki points activated!')}>
-                      <b>2X Points</b>
-                      <strong>Weekend Travel</strong>
-                      <small>Activate Deal →</small>
-                      <Award className="w-10 h-10 opacity-30 absolute right-3 bottom-2 text-white" />
-                    </article>
+                    {vouchers.filter(v => v.claimed).slice(0, 4).map((vch, idx) => {
+                      const colors = ['blue', 'green', 'orange', 'purple'];
+                      const colorClass = colors[idx % colors.length];
+                      return (
+                        <article 
+                          key={vch.id} 
+                          className={`deal ${colorClass} cursor-pointer`} 
+                          onClick={() => {
+                            navigator.clipboard?.writeText(vch.code);
+                            showToast(`Code ${vch.code} copied: ${vch.title}!`);
+                          }}
+                          title="Click to copy promo code"
+                        >
+                          <b>{vch.discountType === 'percentage' ? `${vch.discountValue}% OFF` : `₱${vch.discountValue} OFF`}</b>
+                          <strong>{vch.title}</strong>
+                          <small>Use code: <span className="font-mono font-bold underline">{vch.code}</span></small>
+                          <Tag className="w-10 h-10 opacity-30 absolute right-3 bottom-2 text-white" />
+                        </article>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -3485,54 +3774,72 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                     <a onClick={() => setActiveView('dashboard')} style={{ cursor: 'pointer' }}>View All →</a>
                   </div>
                   <div className="route-list" id="routes">
-                    <div className="route">
-                      <span className="route-img route-icon">
-                        <Plane className="w-4 h-4 text-teal-600" />
-                      </span>
-                      <div>
-                        <b>Cagayan de Oro → Manila</b>
-                        <small>Flight · 1h 45m · Rating 4.8</small>
+                    {schedules.slice(0, 4).map((sch) => (
+                      <div key={sch.id} className="route">
+                        <span className="route-img route-icon">
+                          {renderTransportIcon(sch.transportType, "w-4 h-4 text-teal-600")}
+                        </span>
+                        <div>
+                          <b>{sch.origin} → {sch.destination}</b>
+                          <small>{sch.operatorName} · {sch.transportType.toUpperCase()} · {sch.duration}</small>
+                        </div>
+                        <strong>₱{sch.baseFare.toLocaleString()}+</strong>
+                        <button onClick={() => { 
+                          setFromLoc(sch.origin); 
+                          setToLoc(sch.destination); 
+                          setTransportTab(sch.transportType);
+                          handleSearchTrips(); 
+                        }}>
+                          Book Now
+                        </button>
                       </div>
-                      <strong>₱2,499+</strong>
-                      <button onClick={() => { setFromLoc('Cagayan de Oro'); setToLoc('Manila'); handleSearchTrips(); }}>Book Now</button>
-                    </div>
-
-                    <div className="route">
-                      <span className="route-img route-icon">
-                        <Plane className="w-4 h-4 text-teal-600" />
-                      </span>
-                      <div>
-                        <b>Cagayan de Oro → Cebu</b>
-                        <small>Flight · 1h 30m · Rating 4.7</small>
-                      </div>
-                      <strong>₱1,899+</strong>
-                      <button onClick={() => { setFromLoc('Cagayan de Oro'); setToLoc('Cebu'); handleSearchTrips(); }}>Book Now</button>
-                    </div>
-
-                    <div className="route">
-                      <span className="route-img route-icon">
-                        <Plane className="w-4 h-4 text-teal-600" />
-                      </span>
-                      <div>
-                        <b>Davao → Siargao</b>
-                        <small>Flight · 1h 55m · Rating 4.9</small>
-                      </div>
-                      <strong>₱2,199+</strong>
-                      <button onClick={() => { setFromLoc('Davao'); setToLoc('Siargao'); handleSearchTrips(); }}>Book Now</button>
-                    </div>
-
-                    <div className="route">
-                      <span className="route-img route-icon">
-                        <Ship className="w-4 h-4 text-teal-600" />
-                      </span>
-                      <div>
-                        <b>CDO → Camiguin</b>
-                        <small>Ferry · 1h 30m · Rating 4.6</small>
-                      </div>
-                      <strong>₱450+</strong>
-                      <button onClick={() => { setFromLoc('Cagayan de Oro'); setToLoc('Camiguin'); handleSearchTrips(); }}>Book Now</button>
-                    </div>
+                    ))}
                   </div>
+                </div>
+              </section>
+
+              {/* Partner Transport Operators Section (Direct CMS Reflection) */}
+              <section className="section operators-section" id="operators">
+                <div className="section-heading inline heading row">
+                  <div>
+                    <h2>Licensed <span>Transport Partners</span></h2>
+                    <p>Official bus lines, ferry operators, and airlines serving Mindanao.</p>
+                  </div>
+                  <button className="link-btn" onClick={() => showToast(`Featuring ${operators.length} accredited transport operators`)}>
+                    Accredited Partners ({operators.length}) →
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-2">
+                  {operators.map((op) => (
+                    <div 
+                      key={op.id} 
+                      className="bg-white rounded-2xl p-4 border border-slate-200/90 hover:border-teal-400 hover:shadow-lg transition-all group cursor-pointer flex flex-col justify-between"
+                      onClick={() => {
+                        setTransportTab(op.type);
+                        handleSearchTrips();
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl p-2 bg-slate-50 rounded-xl border border-slate-100 group-hover:scale-110 transition-transform">{op.logo}</span>
+                          <div>
+                            <h3 className="font-extrabold text-sm text-slate-900 leading-tight group-hover:text-teal-700 transition-colors">{op.name}</h3>
+                            <span className="text-[10px] uppercase font-black tracking-wider text-teal-600 block mt-0.5">{op.type}</span>
+                          </div>
+                        </div>
+                        <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/60 shrink-0">
+                          ⭐ {op.rating}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 line-clamp-2 mt-1 mb-3 leading-relaxed">
+                        {op.description}
+                      </p>
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-teal-600 group-hover:text-teal-700">
+                        <span>View Trips</span>
+                        <span className="group-hover:translate-x-1 transition-transform">→</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </section>
 
@@ -3995,22 +4302,45 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-3">
+            <form onSubmit={handleCreateOperator} className="space-y-3">
               <div className="admin-form-group">
                 <label>Operator Company Name</label>
-                <input type="text" placeholder="e.g. FastCat Mindanao Ferry" />
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. FastCat Mindanao Ferry" 
+                  value={newOperatorForm.name}
+                  onChange={(e) => setNewOperatorForm({ ...newOperatorForm, name: e.target.value })}
+                />
               </div>
               <div className="admin-form-group">
                 <label>Transport Mode</label>
-                <select>
-                  <option>Ferry & RoRo</option>
-                  <option>Bus Line</option>
-                  <option>Airlines</option>
+                <select 
+                  value={newOperatorForm.type}
+                  onChange={(e) => setNewOperatorForm({ ...newOperatorForm, type: e.target.value as any })}
+                >
+                  <option value="ferry">Ferry & RoRo</option>
+                  <option value="bus">Bus Line</option>
+                  <option value="flight">Airlines</option>
                 </select>
               </div>
               <div className="admin-form-group">
                 <label>Contact Number / Dispatch</label>
-                <input type="text" placeholder="+63 917..." />
+                <input 
+                  type="text" 
+                  placeholder="+63 917 123 4567" 
+                  value={newOperatorForm.contact}
+                  onChange={(e) => setNewOperatorForm({ ...newOperatorForm, contact: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Service Description</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Daily modern passenger ferry connecting Mindanao islands" 
+                  value={newOperatorForm.description}
+                  onChange={(e) => setNewOperatorForm({ ...newOperatorForm, description: e.target.value })}
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button 
@@ -4021,17 +4351,13 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                   Cancel
                 </button>
                 <button 
-                  type="button" 
+                  type="submit" 
                   className="primary px-5 py-2 rounded-xl text-xs font-bold"
-                  onClick={() => {
-                    setShowAddOperatorModal(false);
-                    showToast('Partner operator onboarded and verified!');
-                  }}
                 >
                   Onboard Operator
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
@@ -4049,18 +4375,66 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-3">
+            <form onSubmit={handleCreateDestination} className="space-y-3">
               <div className="admin-form-group">
                 <label>Destination Name</label>
-                <input type="text" placeholder="e.g. Britania Islands" />
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Britania Islands" 
+                  value={newDestinationForm.name}
+                  onChange={(e) => setNewDestinationForm({ ...newDestinationForm, name: e.target.value })}
+                />
               </div>
               <div className="admin-form-group">
                 <label>Province / Region</label>
-                <input type="text" placeholder="e.g. Surigao del Sur" />
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Surigao del Sur" 
+                  value={newDestinationForm.province}
+                  onChange={(e) => setNewDestinationForm({ ...newDestinationForm, province: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Category</label>
+                <select 
+                  value={newDestinationForm.category}
+                  onChange={(e) => setNewDestinationForm({ ...newDestinationForm, category: e.target.value })}
+                >
+                  <option value="islands">Islands & Beaches</option>
+                  <option value="waterfalls">Waterfalls</option>
+                  <option value="mountains">Highlands & Nature</option>
+                  <option value="cities">Cities & Hubs</option>
+                  <option value="cultural">Culture & Heritage</option>
+                </select>
               </div>
               <div className="admin-form-group">
                 <label>Hero Image URL</label>
-                <input type="text" placeholder="https://images.unsplash.com/..." />
+                <input 
+                  type="text" 
+                  placeholder="https://images.unsplash.com/..." 
+                  value={newDestinationForm.heroImage}
+                  onChange={(e) => setNewDestinationForm({ ...newDestinationForm, heroImage: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Short Description</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Pristine group of 24 uninhabited tropical islets." 
+                  value={newDestinationForm.shortDescription}
+                  onChange={(e) => setNewDestinationForm({ ...newDestinationForm, shortDescription: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Tags (separated by bullet •)</label>
+                <input 
+                  type="text" 
+                  placeholder="Island Hopping • White Sand • Diving" 
+                  value={newDestinationForm.tags}
+                  onChange={(e) => setNewDestinationForm({ ...newDestinationForm, tags: e.target.value })}
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button 
@@ -4071,17 +4445,177 @@ const SAMPLE_LOGO_2 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/s
                   Cancel
                 </button>
                 <button 
-                  type="button" 
+                  type="submit" 
                   className="primary px-5 py-2 rounded-xl text-xs font-bold"
-                  onClick={() => {
-                    setShowAddDestinationModal(false);
-                    showToast('Destination added to Mindanao Tourism guide!');
-                  }}
                 >
                   Publish Destination
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Destination */}
+      {editingDestination && (
+        <div className="admin-modal-overlay" onClick={() => setEditingDestination(null)}>
+          <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+              <h2 className="text-base font-extrabold text-slate-900">Edit Destination</h2>
+              <button 
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg" 
+                onClick={() => setEditingDestination(null)}
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveDestination(editingDestination);
+            }} className="space-y-3">
+              <div className="admin-form-group">
+                <label>Destination Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingDestination.name}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, name: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Province / Region</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingDestination.province}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, province: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Category</label>
+                <select 
+                  value={editingDestination.category}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, category: e.target.value as any })}
+                >
+                  <option value="islands">Islands & Beaches</option>
+                  <option value="waterfalls">Waterfalls</option>
+                  <option value="mountains">Highlands & Nature</option>
+                  <option value="cities">Cities & Hubs</option>
+                  <option value="cultural">Culture & Heritage</option>
+                </select>
+              </div>
+              <div className="admin-form-group">
+                <label>Hero Image URL</label>
+                <input 
+                  type="text" 
+                  value={editingDestination.heroImage}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, heroImage: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Short Description</label>
+                <input 
+                  type="text" 
+                  value={editingDestination.shortDescription}
+                  onChange={(e) => setEditingDestination({ ...editingDestination, shortDescription: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button 
+                  type="button" 
+                  className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-600"
+                  onClick={() => setEditingDestination(null)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="primary px-5 py-2 rounded-xl text-xs font-bold"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Operator */}
+      {editingOperator && (
+        <div className="admin-modal-overlay" onClick={() => setEditingOperator(null)}>
+          <div className="admin-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+              <h2 className="text-base font-extrabold text-slate-900">Edit Transport Operator</h2>
+              <button 
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg" 
+                onClick={() => setEditingOperator(null)}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleSaveOperator(editingOperator);
+            }} className="space-y-3">
+              <div className="admin-form-group">
+                <label>Operator Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingOperator.name}
+                  onChange={(e) => setEditingOperator({ ...editingOperator, name: e.target.value })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Transport Mode</label>
+                <select 
+                  value={editingOperator.type}
+                  onChange={(e) => setEditingOperator({ 
+                    ...editingOperator, 
+                    type: e.target.value as any,
+                    logo: e.target.value === 'flight' ? '✈️' : e.target.value === 'ferry' ? '🚢' : '🚌'
+                  })}
+                >
+                  <option value="ferry">Ferry / Maritime Vessel</option>
+                  <option value="bus">Bus / Coach Line</option>
+                  <option value="flight">Domestic Airline</option>
+                </select>
+              </div>
+              <div className="admin-form-group">
+                <label>Rating (1.0 to 5.0)</label>
+                <input 
+                  type="number" 
+                  step="0.1" 
+                  min="1" 
+                  max="5"
+                  value={editingOperator.rating}
+                  onChange={(e) => setEditingOperator({ ...editingOperator, rating: parseFloat(e.target.value) || 4.5 })}
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Company Description</label>
+                <input 
+                  type="text" 
+                  value={editingOperator.description}
+                  onChange={(e) => setEditingOperator({ ...editingOperator, description: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button 
+                  type="button" 
+                  className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-600"
+                  onClick={() => setEditingOperator(null)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="primary px-5 py-2 rounded-xl text-xs font-bold"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

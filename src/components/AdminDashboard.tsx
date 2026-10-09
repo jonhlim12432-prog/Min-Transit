@@ -6,13 +6,31 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onOpenVercelDeploy }) => {
-  const [metrics, setMetrics] = useState({
-    totalBookings: 142,
-    totalRevenue: 284500,
-    totalTravelers: 12450,
-    activeOperators: 5,
-    destinationsCount: 20,
-    sukiMembers: 8420
+  const [metrics, setMetrics] = useState(() => {
+    try {
+      const bList = JSON.parse(localStorage.getItem('mtth_bookings') || '[]');
+      const rev = bList.reduce((acc: number, b: any) => acc + (b.totalPaid || 0), 0);
+      const kycList = JSON.parse(localStorage.getItem('mtth_customers_kyc') || '[]');
+      const opsList = JSON.parse(localStorage.getItem('mtth_operators') || '[]');
+      const destList = JSON.parse(localStorage.getItem('mtth_destinations') || '[]');
+      return {
+        totalBookings: bList.length,
+        totalRevenue: rev,
+        totalTravelers: kycList.length,
+        activeOperators: opsList.length || 5,
+        destinationsCount: destList.length || 6,
+        sukiMembers: kycList.length
+      };
+    } catch {
+      return {
+        totalBookings: 0,
+        totalRevenue: 0,
+        totalTravelers: 0,
+        activeOperators: 0,
+        destinationsCount: 0,
+        sukiMembers: 0
+      };
+    }
   });
 
   return (

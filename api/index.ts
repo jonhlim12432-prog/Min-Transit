@@ -48,50 +48,32 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 });
 
 // Serverless persistent memory stores
+let destinationsStore = [...MOCK_DESTINATIONS];
+let operatorsStore = [...MOCK_OPERATORS];
 let schedulesStore = [...MOCK_SCHEDULES];
 let vouchersStore = [...MOCK_VOUCHERS];
-let bookingsStore: Booking[] = [...DEFAULT_SAMPLE_BOOKINGS];
+let bookingsStore: Booking[] = [];
 let customersKycStore = [...MOCK_CUSTOMERS_KYC];
 let subAdminsStore = [
   {
-    id: 'sub-super-admin',
+    id: 'sub-super-admin-1',
     name: 'Mark Kenneth Ulgasan',
     email: 'markkennethulgasan@gmail.com',
     role: 'Super Admin',
     status: 'Active',
-    permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Issue Refunds', 'Site Settings'],
+    permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Manage Destinations', 'Issue Refunds', 'Site Settings', 'CMS'],
     createdAt: '2026-10-01',
     lastActive: 'Online now'
   },
   {
-    id: 'sub-1',
-    name: 'Carlos Mendoza',
-    email: 'carlos.ops@mtth.ph',
-    role: 'Operations Admin',
+    id: 'sub-super-admin-2',
+    name: 'Jonh Lim',
+    email: 'jonhlim12432@gmail.com',
+    role: 'Super Admin',
     status: 'Active',
-    permissions: ['Manage Bookings', 'Manage Operators', 'Issue Refunds'],
-    createdAt: '2026-08-12',
-    lastActive: '10 mins ago'
-  },
-  {
-    id: 'sub-2',
-    name: 'Eileen Dalisay',
-    email: 'eileen.ticketing@mtth.ph',
-    role: 'Ticketing Agent',
-    status: 'Active',
-    permissions: ['Manage Bookings', 'Issue Tickets'],
-    createdAt: '2026-09-01',
-    lastActive: '1 hour ago'
-  },
-  {
-    id: 'sub-3',
-    name: 'Ramon Bautista',
-    email: 'ramon.support@mtth.ph',
-    role: 'Support Agent',
-    status: 'Active',
-    permissions: ['Manage Support', 'Review Inquiries'],
-    createdAt: '2026-09-15',
-    lastActive: 'Yesterday'
+    permissions: ['Full Access', 'Super Admin', 'Manage Bookings', 'Manage Operators', 'Manage Destinations', 'Issue Refunds', 'Site Settings', 'CMS'],
+    createdAt: '2026-10-01',
+    lastActive: 'Online now'
   }
 ];
 let siteSettingsStore = {
@@ -123,9 +105,9 @@ app.get('/api/health', (_req: Request, res: Response) => {
   });
 });
 
-app.get('/api/destinations', (req: Request, res: Response) => {
+app.get(['/api/destinations', '/destinations'], (req: Request, res: Response) => {
   const { category, search } = req.query;
-  let results = [...MOCK_DESTINATIONS];
+  let results = [...destinationsStore];
   if (category && category !== 'all') {
     results = results.filter(d => d.category === category);
   }
@@ -136,16 +118,68 @@ app.get('/api/destinations', (req: Request, res: Response) => {
   res.json(results);
 });
 
-app.get('/api/destinations/:slug', (req: Request, res: Response) => {
-  const dest = MOCK_DESTINATIONS.find(d => d.slug === req.params.slug);
+app.post(['/api/destinations', '/destinations'], async (req: Request, res: Response) => {
+  const newDest = req.body;
+  if (!newDest.id) newDest.id = `dest-${Date.now()}`;
+  destinationsStore = [newDest, ...destinationsStore.filter(d => d.id !== newDest.id)];
+  try {
+    await setDoc(doc(firestoreDb, 'app_state', 'main'), {
+      destinations: destinationsStore,
+      version: Date.now(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch {}
+  res.json({ success: true, destination: newDest, destinations: destinationsStore });
+});
+
+app.delete(['/api/destinations/:id', '/destinations/:id'], async (req: Request, res: Response) => {
+  destinationsStore = destinationsStore.filter(d => d.id !== req.params.id);
+  try {
+    await setDoc(doc(firestoreDb, 'app_state', 'main'), {
+      destinations: destinationsStore,
+      version: Date.now(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch {}
+  res.json({ success: true, destinations: destinationsStore });
+});
+
+app.get(['/api/destinations/:slug', '/destinations/:slug'], (req: Request, res: Response) => {
+  const dest = destinationsStore.find(d => d.slug === req.params.slug || d.id === req.params.slug);
   if (!dest) {
     return res.status(404).json({ error: 'Destination not found' });
   }
   res.json(dest);
 });
 
-app.get('/api/operators', (_req: Request, res: Response) => {
-  res.json(MOCK_OPERATORS);
+app.get(['/api/operators', '/operators'], (_req: Request, res: Response) => {
+  res.json(operatorsStore);
+});
+
+app.post(['/api/operators', '/operators'], async (req: Request, res: Response) => {
+  const newOp = req.body;
+  if (!newOp.id) newOp.id = `op-${Date.now()}`;
+  operatorsStore = [newOp, ...operatorsStore.filter(o => o.id !== newOp.id)];
+  try {
+    await setDoc(doc(firestoreDb, 'app_state', 'main'), {
+      operators: operatorsStore,
+      version: Date.now(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch {}
+  res.json({ success: true, operator: newOp, operators: operatorsStore });
+});
+
+app.delete(['/api/operators/:id', '/operators/:id'], async (req: Request, res: Response) => {
+  operatorsStore = operatorsStore.filter(o => o.id !== req.params.id);
+  try {
+    await setDoc(doc(firestoreDb, 'app_state', 'main'), {
+      operators: operatorsStore,
+      version: Date.now(),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch {}
+  res.json({ success: true, operators: operatorsStore });
 });
 
 app.get('/api/schedules', (req: Request, res: Response) => {
@@ -408,6 +442,8 @@ app.get(['/api/admin/state', '/admin/state'], async (_req: Request, res: Respons
     if (snap.exists()) {
       const data = snap.data();
       if (data) {
+        if (data.destinations) destinationsStore = data.destinations;
+        if (data.operators) operatorsStore = data.operators;
         if (data.schedules) schedulesStore = data.schedules;
         if (data.vouchers) vouchersStore = data.vouchers;
         if (data.bookings) bookingsStore = data.bookings;
@@ -419,6 +455,8 @@ app.get(['/api/admin/state', '/admin/state'], async (_req: Request, res: Respons
 
         return res.json({
           version: data.version || serverlessStateVersion,
+          destinations: data.destinations || destinationsStore,
+          operators: data.operators || operatorsStore,
           schedules: data.schedules || schedulesStore,
           vouchers: data.vouchers || vouchersStore,
           bookings: data.bookings || bookingsStore,
@@ -435,6 +473,8 @@ app.get(['/api/admin/state', '/admin/state'], async (_req: Request, res: Respons
 
   res.json({
     version: serverlessStateVersion,
+    destinations: destinationsStore,
+    operators: operatorsStore,
     schedules: schedulesStore,
     vouchers: vouchersStore,
     bookings: bookingsStore,
@@ -479,7 +519,9 @@ app.post(['/api/admin/settings', '/admin/settings'], async (req: Request, res: R
 });
 
 app.post(['/api/admin/state', '/admin/state'], async (req: Request, res: Response) => {
-  const { schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount } = req.body;
+  const { destinations, operators, schedules, vouchers, bookings, customersKyc, subAdmins, siteSettings, sukiAccount } = req.body;
+  if (destinations) destinationsStore = destinations;
+  if (operators) operatorsStore = operators;
   if (schedules) schedulesStore = schedules;
   if (vouchers) vouchersStore = vouchers;
   if (bookings) bookingsStore = bookings;
@@ -492,6 +534,8 @@ app.post(['/api/admin/state', '/admin/state'], async (req: Request, res: Respons
   try {
     const rawPayload = {
       version: serverlessStateVersion,
+      destinations: destinationsStore,
+      operators: operatorsStore,
       schedules: schedulesStore,
       vouchers: vouchersStore,
       bookings: bookingsStore,
@@ -514,10 +558,10 @@ app.get(['/api/admin/metrics', '/admin/metrics'], (_req: Request, res: Response)
   res.json({
     totalBookings: bookingsStore.length,
     totalRevenue: bookingsStore.reduce((sum, b) => sum + b.totalPaid, 0),
-    totalTravelers: 12450,
-    activeOperators: MOCK_OPERATORS.length,
-    destinationsCount: MOCK_DESTINATIONS.length,
-    sukiMembers: 8420
+    totalTravelers: customersKycStore.length,
+    activeOperators: operatorsStore.length,
+    destinationsCount: destinationsStore.length,
+    sukiMembers: customersKycStore.filter(c => c.tier).length
   });
 });
 
